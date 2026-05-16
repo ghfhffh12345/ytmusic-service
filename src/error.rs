@@ -46,7 +46,9 @@ pub fn map_invalid_argument(message: impl Into<String>) -> tonic::Status {
 
 pub fn map_service_error(error: &ServiceError) -> tonic::Status {
     match error {
-        ServiceError::EnvVar { source, .. } => tonic::Status::failed_precondition(source.to_string()),
+        ServiceError::EnvVar { source, .. } => {
+            tonic::Status::failed_precondition(source.to_string())
+        }
         ServiceError::BrowserAuthPathMissing(path) => tonic::Status::failed_precondition(format!(
             "browser auth file missing: {}",
             path.display()

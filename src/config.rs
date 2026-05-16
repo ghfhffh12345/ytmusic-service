@@ -17,16 +17,17 @@ impl ServiceConfig {
                 source,
             }
         })?;
-        let admin_addr = std::env::var("YTMUSIC_SERVICE_ADMIN_ADDR").map_err(|source| {
-            ServiceError::EnvVar {
+        let admin_addr =
+            std::env::var("YTMUSIC_SERVICE_ADMIN_ADDR").map_err(|source| ServiceError::EnvVar {
                 name: "YTMUSIC_SERVICE_ADMIN_ADDR",
                 source,
-            }
-        })?;
-        let browser_auth_path = std::env::var("YTMUSIC_SERVICE_BROWSER_JSON")
-            .map_err(|source| ServiceError::EnvVar {
-                name: "YTMUSIC_SERVICE_BROWSER_JSON",
-                source,
+            })?;
+        let browser_auth_path =
+            std::env::var("YTMUSIC_SERVICE_BROWSER_JSON").map_err(|source| {
+                ServiceError::EnvVar {
+                    name: "YTMUSIC_SERVICE_BROWSER_JSON",
+                    source,
+                }
             })?;
 
         Self::from_parts(&public_addr, &admin_addr, PathBuf::from(browser_auth_path))

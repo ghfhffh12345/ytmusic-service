@@ -6,10 +6,17 @@ pub mod proto;
 pub mod servers;
 pub mod state;
 
-pub async fn run(config: config::ServiceConfig) -> Result<(), error::ServiceError> {
-    let auth = auth_context::AuthContext::from_browser_auth_file(&config).await?;
-    auth.probe().await?;
+#[doc(hidden)]
+pub type StartupAuthFuture<'a> = std::pin::Pin<
+    Box<dyn std::future::Future<Output = Result<(), error::ServiceError>> + Send + 'a>,
+>;
+#[doc(hidden)]
+pub type StartupAuthValidator = std::sync::Arc<
+    dyn for<'a> Fn(&'a auth_context::AuthContext) -> StartupAuthFuture<'a> + Send + Sync,
+>;
 
+pub async fn run(config: config::ServiceConfig) -> Result<(), error::ServiceError> {
+    let auth = load_startup_auth(&config, &StartupValidation::Production).await?;
     let state = std::sync::Arc::new(state::AppState::new(auth).await?);
 
     let public_service = servers::public::PublicService {
@@ -25,26 +32,20 @@ pub async fn run(config: config::ServiceConfig) -> Result<(), error::ServiceErro
 
     let (mut public_reporter, public_health) = tonic_health::server::health_reporter();
     public_reporter
-        .set_serving::<
-            proto::ytmusic::v1::yt_music_public_server::YtMusicPublicServer<
-                servers::public::PublicService,
-            >,
-        >()
+        .set_serving::<proto::ytmusic::v1::yt_music_public_server::YtMusicPublicServer<
+            servers::public::PublicService,
+        >>()
         .await;
     let (mut admin_reporter, admin_health) = tonic_health::server::health_reporter();
     admin_reporter
-        .set_serving::<
-            proto::ytmusic::v1::admin::yt_music_admin_server::YtMusicAdminServer<
-                servers::admin::AdminService,
-            >,
-        >()
+        .set_serving::<proto::ytmusic::v1::admin::yt_music_admin_server::YtMusicAdminServer<
+            servers::admin::AdminService,
+        >>()
         .await;
 
     let reflection = tonic_reflection::server::Builder::configure()
         .register_encoded_file_descriptor_set(proto::ytmusic::v1::PUBLIC_FILE_DESCRIPTOR_SET)
-        .register_encoded_file_descriptor_set(
-            proto::ytmusic::v1::admin::ADMIN_FILE_DESCRIPTOR_SET,
-        )
+        .register_encoded_file_descriptor_set(proto::ytmusic::v1::admin::ADMIN_FILE_DESCRIPTOR_SET)
         .build_v1()
         .map_err(error::ServiceError::Reflection)?;
 
@@ -73,6 +74,33 @@ pub async fn run(config: config::ServiceConfig) -> Result<(), error::ServiceErro
 
     tokio::try_join!(public, admin).map_err(error::ServiceError::Transport)?;
     Ok(())
+}
+
+#[doc(hidden)]
+pub async fn load_startup_auth_for_tests(
+    config: &config::ServiceConfig,
+    validator: StartupAuthValidator,
+) -> Result<auth_context::AuthContext, error::ServiceError> {
+    load_startup_auth(config, &StartupValidation::Injected(validator)).await
+}
+
+enum StartupValidation {
+    Production,
+    Injected(StartupAuthValidator),
+}
+
+async fn load_startup_auth(
+    config: &config::ServiceConfig,
+    validator: &StartupValidation,
+) -> Result<auth_context::AuthContext, error::ServiceError> {
+    let auth = auth_context::AuthContext::from_browser_auth_file(config).await?;
+
+    match validator {
+        StartupValidation::Production => auth.probe().await?,
+        StartupValidation::Injected(validator) => validator(&auth).await?,
+    }
+
+    Ok(auth)
 }
 
 async fn bind_service_listeners(
