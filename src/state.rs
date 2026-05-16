@@ -19,6 +19,13 @@ impl AppState {
             cipher: Arc::new(SharedCipher::new().await?),
         })
     }
+
+    pub fn from_parts(auth: AuthContext, cipher: Arc<SharedCipher>) -> Self {
+        Self {
+            auth: ArcSwap::from_pointee(auth),
+            cipher,
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -62,6 +69,12 @@ impl SharedCipher {
             .map_err(|_| ServiceError::CipherWorkerUnavailable)??;
 
         Ok(Self { command_tx })
+    }
+
+    pub fn unavailable() -> Self {
+        let (command_tx, command_rx) = mpsc::channel(1);
+        drop(command_rx);
+        Self { command_tx }
     }
 
     pub async fn signature_timestamp(&self) -> Result<u32, ServiceError> {
