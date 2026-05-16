@@ -9,24 +9,24 @@ service YtMusicPublic {
   rpc GetWatchPlaylistContinuation(GetWatchPlaylistContinuationRequest) returns (WatchPlaylistResponse);
   rpc GetSong(GetSongRequest) returns (GetSongResponse);
   rpc GetLibraryPlaylists(Empty) returns (LibraryPlaylistsResponse);
-  rpc GetLibraryPlaylistsContinuation(LibraryContinuationRequest) returns (LibraryPlaylistsResponse);
+  rpc GetLibraryPlaylistsContinuation(GetLibraryPlaylistsContinuationRequest) returns (LibraryPlaylistsResponse);
   rpc GetAccountInfo(Empty) returns (AccountInfoResponse);
   rpc GetLibraryArtists(Empty) returns (LibraryArtistsResponse);
-  rpc GetLibraryArtistsContinuation(LibraryContinuationRequest) returns (LibraryArtistsResponse);
+  rpc GetLibraryArtistsContinuation(GetLibraryArtistsContinuationRequest) returns (LibraryArtistsResponse);
   rpc GetLibraryAlbums(Empty) returns (LibraryAlbumsResponse);
-  rpc GetLibraryAlbumsContinuation(LibraryContinuationRequest) returns (LibraryAlbumsResponse);
+  rpc GetLibraryAlbumsContinuation(GetLibraryAlbumsContinuationRequest) returns (LibraryAlbumsResponse);
   rpc GetLibrarySubscriptions(Empty) returns (LibrarySubscriptionsResponse);
-  rpc GetLibrarySubscriptionsContinuation(LibraryContinuationRequest) returns (LibrarySubscriptionsResponse);
+  rpc GetLibrarySubscriptionsContinuation(GetLibrarySubscriptionsContinuationRequest) returns (LibrarySubscriptionsResponse);
   rpc GetLibraryChannels(Empty) returns (LibraryChannelsResponse);
-  rpc GetLibraryChannelsContinuation(LibraryContinuationRequest) returns (LibraryChannelsResponse);
+  rpc GetLibraryChannelsContinuation(GetLibraryChannelsContinuationRequest) returns (LibraryChannelsResponse);
   rpc GetLibraryPodcasts(Empty) returns (LibraryPodcastsResponse);
-  rpc GetLibraryPodcastsContinuation(LibraryContinuationRequest) returns (LibraryPodcastsResponse);
+  rpc GetLibraryPodcastsContinuation(GetLibraryPodcastsContinuationRequest) returns (LibraryPodcastsResponse);
   rpc GetLibrarySongs(Empty) returns (LibrarySongsResponse);
-  rpc GetLibrarySongsContinuation(LibraryContinuationRequest) returns (LibrarySongsResponse);
+  rpc GetLibrarySongsContinuation(GetLibrarySongsContinuationRequest) returns (LibrarySongsResponse);
   rpc GetLikedSongs(Empty) returns (LikedSongsResponse);
-  rpc GetLikedSongsContinuation(LibraryContinuationRequest) returns (LikedSongsResponse);
+  rpc GetLikedSongsContinuation(GetLikedSongsContinuationRequest) returns (LikedSongsResponse);
   rpc GetSavedEpisodes(Empty) returns (SavedEpisodesResponse);
-  rpc GetSavedEpisodesContinuation(LibraryContinuationRequest) returns (SavedEpisodesResponse);
+  rpc GetSavedEpisodesContinuation(GetSavedEpisodesContinuationRequest) returns (SavedEpisodesResponse);
   rpc Decipher(DecipherRequest) returns (DecipherResponse);
 }
 
@@ -57,7 +57,39 @@ message GetSongRequest {
   string video_id = 1;
 }
 
-message LibraryContinuationRequest {
+message GetLibraryPlaylistsContinuationRequest {
+  string token = 1;
+}
+
+message GetLibraryArtistsContinuationRequest {
+  string token = 1;
+}
+
+message GetLibraryAlbumsContinuationRequest {
+  string token = 1;
+}
+
+message GetLibrarySubscriptionsContinuationRequest {
+  string token = 1;
+}
+
+message GetLibraryChannelsContinuationRequest {
+  string token = 1;
+}
+
+message GetLibraryPodcastsContinuationRequest {
+  string token = 1;
+}
+
+message GetLibrarySongsContinuationRequest {
+  string token = 1;
+}
+
+message GetLikedSongsContinuationRequest {
+  string token = 1;
+}
+
+message GetSavedEpisodesContinuationRequest {
   string token = 1;
 }
 
@@ -85,7 +117,47 @@ message AlbumRef {
   string name = 2;
 }
 
-message ContinuationToken {
+message SearchContinuationToken {
+  string value = 1;
+}
+
+message WatchPlaylistContinuationToken {
+  string value = 1;
+}
+
+message LibraryPlaylistsContinuationToken {
+  string value = 1;
+}
+
+message LibraryArtistsContinuationToken {
+  string value = 1;
+}
+
+message LibraryAlbumsContinuationToken {
+  string value = 1;
+}
+
+message LibrarySubscriptionsContinuationToken {
+  string value = 1;
+}
+
+message LibraryChannelsContinuationToken {
+  string value = 1;
+}
+
+message LibraryPodcastsContinuationToken {
+  string value = 1;
+}
+
+message LibrarySongsContinuationToken {
+  string value = 1;
+}
+
+message LikedSongsContinuationToken {
+  string value = 1;
+}
+
+message SavedEpisodesContinuationToken {
   string value = 1;
 }
 
@@ -204,7 +276,7 @@ message SearchResultItem {
 
 message SearchResponse {
   repeated SearchResultItem items = 1;
-  ContinuationToken continuation = 2;
+  SearchContinuationToken continuation = 2;
 }
 
 message WatchTrackItem {
@@ -224,7 +296,7 @@ message WatchTrackItem {
 
 message WatchPlaylistResponse {
   repeated WatchTrackItem items = 1;
-  ContinuationToken continuation = 2;
+  WatchPlaylistContinuationToken continuation = 2;
 }
 
 message SongByteRange {
@@ -331,7 +403,7 @@ message LibraryPlaylistItem {
 
 message LibraryPlaylistsResponse {
   repeated LibraryPlaylistItem items = 1;
-  ContinuationToken continuation = 2;
+  LibraryPlaylistsContinuationToken continuation = 2;
 }
 
 message AccountInfoResponse {
@@ -349,7 +421,7 @@ message LibraryArtistItem {
 
 message LibraryArtistsResponse {
   repeated LibraryArtistItem items = 1;
-  ContinuationToken continuation = 2;
+  LibraryArtistsContinuationToken continuation = 2;
 }
 
 message LibraryAlbumItem {
@@ -364,7 +436,7 @@ message LibraryAlbumItem {
 
 message LibraryAlbumsResponse {
   repeated LibraryAlbumItem items = 1;
-  ContinuationToken continuation = 2;
+  LibraryAlbumsContinuationToken continuation = 2;
 }
 
 message LibrarySubscriptionItem {
@@ -376,7 +448,7 @@ message LibrarySubscriptionItem {
 
 message LibrarySubscriptionsResponse {
   repeated LibrarySubscriptionItem items = 1;
-  ContinuationToken continuation = 2;
+  LibrarySubscriptionsContinuationToken continuation = 2;
 }
 
 message LibraryChannelItem {
@@ -388,7 +460,7 @@ message LibraryChannelItem {
 
 message LibraryChannelsResponse {
   repeated LibraryChannelItem items = 1;
-  ContinuationToken continuation = 2;
+  LibraryChannelsContinuationToken continuation = 2;
 }
 
 message LibraryPodcastChannel {
@@ -406,7 +478,7 @@ message LibraryPodcastItem {
 
 message LibraryPodcastsResponse {
   repeated LibraryPodcastItem items = 1;
-  ContinuationToken continuation = 2;
+  LibraryPodcastsContinuationToken continuation = 2;
 }
 
 message LibrarySongItem {
@@ -421,7 +493,7 @@ message LibrarySongItem {
 
 message LibrarySongsResponse {
   repeated LibrarySongItem items = 1;
-  ContinuationToken continuation = 2;
+  LibrarySongsContinuationToken continuation = 2;
 }
 
 message LikedSongItem {
@@ -439,7 +511,7 @@ message LikedSongsResponse {
   string title = 2;
   repeated LikedSongItem items = 3;
   repeated Thumbnail thumbnails = 4;
-  ContinuationToken continuation = 5;
+  LikedSongsContinuationToken continuation = 5;
 }
 
 message SavedEpisodeItem {
@@ -456,5 +528,5 @@ message SavedEpisodesResponse {
   string title = 2;
   repeated SavedEpisodeItem items = 3;
   repeated Thumbnail thumbnails = 4;
-  ContinuationToken continuation = 5;
+  SavedEpisodesContinuationToken continuation = 5;
 }
