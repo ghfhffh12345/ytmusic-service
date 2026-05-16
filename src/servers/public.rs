@@ -1256,3 +1256,173 @@ mod mapping {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::mapping;
+    use crate::proto::ytmusic::v1 as pb;
+
+    fn artist_ref(id: &str, name: &str) -> ytmusicapi::ArtistRef {
+        ytmusicapi::ArtistRef {
+            id: id.to_owned(),
+            name: name.to_owned(),
+        }
+    }
+
+    fn album_ref(id: &str, name: &str) -> ytmusicapi::AlbumRef {
+        ytmusicapi::AlbumRef {
+            id: id.to_owned(),
+            name: name.to_owned(),
+        }
+    }
+
+    fn thumbnail(url: &str, width: u32, height: u32) -> ytmusicapi::Thumbnail {
+        ytmusicapi::Thumbnail {
+            url: url.to_owned(),
+            width,
+            height,
+        }
+    }
+
+    #[test]
+    fn public_api_account_info_to_proto_preserves_fields() {
+        let proto = mapping::account_info_to_proto(ytmusicapi::AccountInfo {
+            account_name: "listener@example.com".to_owned(),
+            channel_handle: Some("@listener".to_owned()),
+            account_photo_url: "https://example.com/profile.jpg".to_owned(),
+        });
+
+        assert_eq!(proto.account_name, "listener@example.com");
+        assert_eq!(proto.channel_handle.as_deref(), Some("@listener"));
+        assert_eq!(proto.account_photo_url, "https://example.com/profile.jpg");
+    }
+
+    #[test]
+    fn public_api_liked_songs_page_to_proto_preserves_playlist_item_and_continuation_fields() {
+        let proto = mapping::liked_songs_page_to_proto(ytmusicapi::LikedSongsPage {
+            playlist_id: "LM".to_owned(),
+            title: "Liked Music".to_owned(),
+            items: vec![ytmusicapi::LikedSongItem {
+                video_id: "video-123".to_owned(),
+                title: "Signal".to_owned(),
+                artists: vec![artist_ref("artist-1", "The Signalers")],
+                album: Some(album_ref("album-1", "Patterns")),
+                duration: Some("3:45".to_owned()),
+                thumbnails: vec![thumbnail("https://example.com/song.jpg", 120, 120)],
+                like_status: Some(ytmusicapi::LibraryLikeStatus::Like),
+            }],
+            thumbnails: vec![thumbnail("https://example.com/playlist.jpg", 640, 640)],
+            continuation: Some(ytmusicapi::LikedSongsContinuationToken::new("next-liked")),
+        });
+
+        assert_eq!(proto.playlist_id, "LM");
+        assert_eq!(proto.title, "Liked Music");
+        assert_eq!(proto.items.len(), 1);
+        assert_eq!(proto.items[0].video_id, "video-123");
+        assert_eq!(proto.items[0].title, "Signal");
+        assert_eq!(proto.items[0].artists[0].name, "The Signalers");
+        assert_eq!(
+            proto.items[0]
+                .album
+                .as_ref()
+                .map(|album| album.name.as_str()),
+            Some("Patterns")
+        );
+        assert_eq!(proto.items[0].duration.as_deref(), Some("3:45"));
+        assert_eq!(
+            proto.items[0].thumbnails[0].url,
+            "https://example.com/song.jpg"
+        );
+        assert_eq!(
+            proto.items[0].like_status,
+            Some(pb::LibraryLikeStatus::Like as i32)
+        );
+        assert_eq!(
+            proto
+                .continuation
+                .as_ref()
+                .map(|token| token.value.as_str()),
+            Some("next-liked")
+        );
+    }
+
+    #[test]
+    fn public_api_library_podcasts_page_to_proto_preserves_nested_channel_fields() {
+        let proto = mapping::library_podcasts_page_to_proto(ytmusicapi::Page {
+            items: vec![ytmusicapi::LibraryPodcast {
+                title: "On Air".to_owned(),
+                browse_id: "browse-1".to_owned(),
+                podcast_id: "podcast-1".to_owned(),
+                channel: ytmusicapi::LibraryPodcastChannel {
+                    id: Some("channel-42".to_owned()),
+                    name: "Waveform".to_owned(),
+                },
+                thumbnails: vec![thumbnail("https://example.com/podcast.jpg", 320, 320)],
+            }],
+            continuation: Some(ytmusicapi::LibraryPodcastsContinuationToken::new(
+                "next-podcast",
+            )),
+        });
+
+        assert_eq!(proto.items.len(), 1);
+        assert_eq!(proto.items[0].title, "On Air");
+        assert_eq!(proto.items[0].browse_id, "browse-1");
+        assert_eq!(proto.items[0].podcast_id, "podcast-1");
+        assert_eq!(
+            proto.items[0]
+                .channel
+                .as_ref()
+                .and_then(|channel| channel.id.as_deref()),
+            Some("channel-42")
+        );
+        assert_eq!(
+            proto.items[0]
+                .channel
+                .as_ref()
+                .map(|channel| channel.name.as_str()),
+            Some("Waveform")
+        );
+        assert_eq!(
+            proto
+                .continuation
+                .as_ref()
+                .map(|token| token.value.as_str()),
+            Some("next-podcast")
+        );
+    }
+
+    #[test]
+    fn public_api_saved_episodes_page_to_proto_preserves_episode_fields() {
+        let proto = mapping::saved_episodes_page_to_proto(ytmusicapi::SavedEpisodesPage {
+            playlist_id: "SE".to_owned(),
+            title: "Saved Episodes".to_owned(),
+            items: vec![ytmusicapi::SavedEpisodeItem {
+                video_id: "episode-7".to_owned(),
+                title: "Episode Seven".to_owned(),
+                channel: "Waveform".to_owned(),
+                podcast: "On Air".to_owned(),
+                duration: Some("42:00".to_owned()),
+                thumbnails: vec![thumbnail("https://example.com/episode.jpg", 480, 480)],
+            }],
+            thumbnails: vec![thumbnail("https://example.com/saved.jpg", 800, 800)],
+            continuation: Some(ytmusicapi::SavedEpisodesContinuationToken::new(
+                "next-saved",
+            )),
+        });
+
+        assert_eq!(proto.playlist_id, "SE");
+        assert_eq!(proto.title, "Saved Episodes");
+        assert_eq!(proto.items.len(), 1);
+        assert_eq!(proto.items[0].video_id, "episode-7");
+        assert_eq!(proto.items[0].channel, "Waveform");
+        assert_eq!(proto.items[0].podcast, "On Air");
+        assert_eq!(proto.items[0].duration.as_deref(), Some("42:00"));
+        assert_eq!(
+            proto
+                .continuation
+                .as_ref()
+                .map(|token| token.value.as_str()),
+            Some("next-saved")
+        );
+    }
+}

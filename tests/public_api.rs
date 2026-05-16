@@ -5,25 +5,31 @@ use ytmusic_service::{
     auth_context::AuthContext,
     error::{ServiceError, map_service_error},
     proto::ytmusic::v1::{
-        AccountInfoResponse, Empty, SearchRequest, yt_music_public_server::YtMusicPublic,
+        AccountInfoResponse, Empty, GetLibraryPlaylistsContinuationRequest, SearchRequest,
+        yt_music_public_server::YtMusicPublic,
     },
     servers::public::PublicService,
     state::{AppState, SharedCipher},
 };
 
-#[tokio::test]
-async fn public_search_rejects_empty_query() {
+fn test_public_service() -> PublicService {
     let auth = AuthContext {
         client: ytmusicapi::YtMusic::new().expect("test client"),
         version: Arc::<str>::from("test-version"),
         loaded_at: SystemTime::UNIX_EPOCH,
     };
-    let service = PublicService {
+
+    PublicService {
         state: Arc::new(AppState::from_parts_for_tests(
             auth,
             Arc::new(SharedCipher::unavailable_for_tests()),
         )),
-    };
+    }
+}
+
+#[tokio::test]
+async fn public_search_rejects_empty_query() {
+    let service = test_public_service();
 
     let status = service
         .search(Request::new(SearchRequest {
@@ -38,18 +44,8 @@ async fn public_search_rejects_empty_query() {
 }
 
 #[tokio::test]
-async fn public_library_playlists_surfaces_browser_auth_requirement() {
-    let auth = AuthContext {
-        client: ytmusicapi::YtMusic::new().expect("test client"),
-        version: Arc::<str>::from("test-version"),
-        loaded_at: SystemTime::UNIX_EPOCH,
-    };
-    let service = PublicService {
-        state: Arc::new(AppState::from_parts_for_tests(
-            auth,
-            Arc::new(SharedCipher::unavailable_for_tests()),
-        )),
-    };
+async fn public_api_library_playlists_surfaces_browser_auth_requirement() {
+    let service = test_public_service();
 
     let status = service
         .get_library_playlists(Request::new(Empty {}))
@@ -58,14 +54,53 @@ async fn public_library_playlists_surfaces_browser_auth_requirement() {
 
     assert_eq!(status.code(), Code::Unimplemented);
     assert!(
-        status.message().contains("requires browser authentication"),
+        !status
+            .message()
+            .contains("adapter wiring has not been added yet"),
         "unexpected status message: {}",
         status.message()
     );
 }
 
 #[tokio::test]
-async fn account_info_response_keeps_name_field() {
+async fn public_api_get_account_info_surfaces_runtime_status_not_stub_status() {
+    let service = test_public_service();
+
+    let status = service
+        .get_account_info(Request::new(Empty {}))
+        .await
+        .unwrap_err();
+
+    assert_eq!(status.code(), Code::Unimplemented);
+    assert!(
+        !status
+            .message()
+            .contains("adapter wiring has not been added yet"),
+        "unexpected status message: {}",
+        status.message()
+    );
+}
+
+#[tokio::test]
+async fn public_api_library_playlists_continuation_rejects_empty_token() {
+    let service = test_public_service();
+
+    let status = service
+        .get_library_playlists_continuation(Request::new(GetLibraryPlaylistsContinuationRequest {
+            token: "   ".to_owned(),
+        }))
+        .await
+        .unwrap_err();
+
+    assert_eq!(status.code(), Code::InvalidArgument);
+    assert_eq!(
+        status.message(),
+        "library playlists continuation token must not be empty"
+    );
+}
+
+#[tokio::test]
+async fn public_api_account_info_response_keeps_name_field() {
     let response = AccountInfoResponse {
         account_name: "listener@example.com".to_owned(),
         channel_handle: None,
