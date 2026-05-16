@@ -1,8 +1,8 @@
-use std::sync::Arc;
+use std::{future::Future, pin::Pin, sync::Arc};
 
 use arc_swap::ArcSwap;
 use tokio::runtime::Builder;
-use tokio::sync::{mpsc, oneshot};
+use tokio::sync::{Mutex, mpsc, oneshot};
 
 use crate::auth_context::AuthContext;
 use crate::error::ServiceError;
@@ -10,6 +10,7 @@ use crate::error::ServiceError;
 pub struct AppState {
     pub auth: ArcSwap<AuthContext>,
     pub cipher: Arc<SharedCipher>,
+    reload_lock: Mutex<()>,
     reload_validator: ReloadValidator,
 }
 
@@ -18,6 +19,7 @@ impl AppState {
         Ok(Self {
             auth: ArcSwap::from_pointee(auth),
             cipher: Arc::new(SharedCipher::new().await?),
+            reload_lock: Mutex::new(()),
             reload_validator: ReloadValidator::Production,
         })
     }
@@ -26,6 +28,7 @@ impl AppState {
         &self,
         config: &crate::config::ServiceConfig,
     ) -> Result<String, ServiceError> {
+        let _reload_guard = self.reload_lock.lock().await;
         let next = AuthContext::from_browser_auth_file(config).await?;
         self.validate_reload_candidate(&next).await?;
         let version = next.version.to_string();
@@ -38,6 +41,7 @@ impl AppState {
         Self {
             auth: ArcSwap::from_pointee(auth),
             cipher,
+            reload_lock: Mutex::new(()),
             reload_validator: ReloadValidator::Production,
         }
     }
@@ -46,11 +50,12 @@ impl AppState {
     pub fn from_parts_for_reload_tests(
         next: AuthContext,
         cipher: Arc<SharedCipher>,
-        validator: Arc<dyn Fn(&AuthContext) -> Result<(), ServiceError> + Send + Sync>,
+        validator: Arc<ReloadValidatorFn>,
     ) -> Self {
         Self {
             auth: ArcSwap::from_pointee(next),
             cipher,
+            reload_lock: Mutex::new(()),
             reload_validator: ReloadValidator::Injected(validator),
         }
     }
@@ -58,14 +63,19 @@ impl AppState {
     async fn validate_reload_candidate(&self, next: &AuthContext) -> Result<(), ServiceError> {
         match &self.reload_validator {
             ReloadValidator::Production => next.probe().await,
-            ReloadValidator::Injected(validator) => validator(next),
+            ReloadValidator::Injected(validator) => validator(next).await,
         }
     }
 }
 
+type ReloadValidationFuture<'a> =
+    Pin<Box<dyn Future<Output = Result<(), ServiceError>> + Send + 'a>>;
+type ReloadValidatorFn =
+    dyn for<'a> Fn(&'a AuthContext) -> ReloadValidationFuture<'a> + Send + Sync;
+
 enum ReloadValidator {
     Production,
-    Injected(Arc<dyn Fn(&AuthContext) -> Result<(), ServiceError> + Send + Sync>),
+    Injected(Arc<ReloadValidatorFn>),
 }
 
 #[derive(Clone)]

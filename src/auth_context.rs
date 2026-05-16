@@ -22,7 +22,7 @@ impl AuthContext {
         })
     }
 
-    pub async fn probe(&self) -> Result<(), ServiceError> {
+    pub(crate) async fn probe(&self) -> Result<(), ServiceError> {
         self.client
             .get_account_info()
             .await
