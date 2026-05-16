@@ -4,6 +4,17 @@ use ytmusic_service::error::ServiceError;
 #[cfg(unix)]
 use std::os::unix::fs::symlink;
 
+fn write_minimal_valid_browser_auth(path: &std::path::Path) {
+    std::fs::write(
+        path,
+        r#"{
+  "cookie": "__Secure-3PAPISID=test-sapisid",
+  "x-goog-authuser": "0"
+}"#,
+    )
+    .unwrap();
+}
+
 #[tokio::test]
 async fn startup_fails_when_browser_json_is_missing() {
     let dir = TempDir::new().unwrap();
@@ -79,7 +90,7 @@ async fn startup_accepts_browser_json_symlink_to_regular_file() {
 async fn startup_accepts_existing_browser_json_path() {
     let dir = TempDir::new().unwrap();
     let path = dir.path().join("browser.json");
-    std::fs::write(&path, "{}").unwrap();
+    write_minimal_valid_browser_auth(&path);
 
     let config = ytmusic_service::config::ServiceConfig::from_parts(
         "127.0.0.1:50051",
@@ -108,5 +119,28 @@ async fn startup_requires_valid_browser_auth_json() {
 
     let result = ytmusic_service::auth_context::AuthContext::from_browser_auth_file(&config).await;
 
-    assert!(result.is_err());
+    assert!(matches!(result, Err(ServiceError::BrowserAuthLoad(_))));
+}
+
+#[tokio::test]
+async fn startup_assigns_unique_auth_context_versions_per_successful_load() {
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("browser.json");
+    write_minimal_valid_browser_auth(&path);
+
+    let config = ytmusic_service::config::ServiceConfig::from_parts(
+        "127.0.0.1:50051",
+        "127.0.0.1:50052",
+        path,
+    )
+    .unwrap();
+
+    let first = ytmusic_service::auth_context::AuthContext::from_browser_auth_file(&config)
+        .await
+        .unwrap();
+    let second = ytmusic_service::auth_context::AuthContext::from_browser_auth_file(&config)
+        .await
+        .unwrap();
+
+    assert_ne!(first.version.as_ref(), second.version.as_ref());
 }
