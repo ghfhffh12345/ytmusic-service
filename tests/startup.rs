@@ -1,6 +1,9 @@
 use tempfile::TempDir;
 use ytmusic_service::error::ServiceError;
 
+#[cfg(unix)]
+use std::os::unix::fs::symlink;
+
 #[tokio::test]
 async fn startup_fails_when_browser_json_is_missing() {
     let dir = TempDir::new().unwrap();
@@ -38,6 +41,38 @@ async fn startup_fails_when_browser_json_path_is_a_directory() {
         }
         other => panic!("expected BrowserAuthPathNotFile, got {other:?}"),
     }
+}
+
+#[tokio::test]
+async fn startup_fails_when_public_addr_is_invalid() {
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("browser.json");
+    std::fs::write(&path, "{}").unwrap();
+
+    let result =
+        ytmusic_service::config::ServiceConfig::from_parts("invalid", "127.0.0.1:50052", path);
+
+    assert!(matches!(result, Err(ServiceError::InvalidSocketAddress(_))));
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn startup_accepts_browser_json_symlink_to_regular_file() {
+    let dir = TempDir::new().unwrap();
+    let target_path = dir.path().join("real-browser.json");
+    std::fs::write(&target_path, "{}").unwrap();
+
+    let symlink_path = dir.path().join("browser.json");
+    symlink(&target_path, &symlink_path).unwrap();
+
+    let config = ytmusic_service::config::ServiceConfig::from_parts(
+        "127.0.0.1:50051",
+        "127.0.0.1:50052",
+        symlink_path.clone(),
+    )
+    .unwrap();
+
+    assert_eq!(config.browser_auth_path(), symlink_path.as_path());
 }
 
 #[tokio::test]
