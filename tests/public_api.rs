@@ -30,6 +30,13 @@ fn test_public_service() -> PublicService {
     }
 }
 
+fn test_admin_service(config: ServiceConfig) -> AdminService {
+    AdminService {
+        state: test_public_service().state,
+        config,
+    }
+}
+
 #[tokio::test]
 async fn public_search_rejects_empty_query() {
     let service = test_public_service();
@@ -131,10 +138,7 @@ async fn admin_reload_surfaces_reload_failures_as_status() {
     std::fs::write(&path, r#"{"cookie":"broken"}"#).unwrap();
 
     let config = ServiceConfig::from_parts("127.0.0.1:50051", "127.0.0.1:50052", path).unwrap();
-    let service = AdminService {
-        state: test_public_service().state,
-        config,
-    };
+    let service = test_admin_service(config);
 
     let status = service
         .reload_browser_auth(Request::new(ReloadBrowserAuthRequest {}))

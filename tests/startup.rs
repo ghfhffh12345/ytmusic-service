@@ -21,6 +21,17 @@ fn is_lower_hex_token(value: &str) -> bool {
         .all(|ch| ch.is_ascii_digit() || ('a'..='f').contains(&ch))
 }
 
+fn write_well_formed_unusable_browser_auth(path: &std::path::Path) {
+    std::fs::write(
+        path,
+        r#"{
+  "cookie": "__Secure-3PAPISID=definitely-invalid-sapisid",
+  "x-goog-authuser": "0"
+}"#,
+    )
+    .unwrap();
+}
+
 #[tokio::test]
 async fn startup_fails_when_browser_json_is_missing() {
     let dir = TempDir::new().unwrap();
@@ -126,6 +137,47 @@ async fn startup_requires_valid_browser_auth_json() {
     let result = ytmusic_service::auth_context::AuthContext::from_browser_auth_file(&config).await;
 
     assert!(matches!(result, Err(ServiceError::BrowserAuthLoad(_))));
+}
+
+#[tokio::test]
+async fn startup_fails_when_browser_json_is_malformed() {
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("browser.json");
+    std::fs::write(&path, "{not-json").unwrap();
+
+    let config = ytmusic_service::config::ServiceConfig::from_parts(
+        "127.0.0.1:50051",
+        "127.0.0.1:50052",
+        path,
+    )
+    .unwrap();
+
+    let result = ytmusic_service::auth_context::AuthContext::from_browser_auth_file(&config).await;
+
+    assert!(matches!(result, Err(ServiceError::BrowserAuthLoad(_))));
+}
+
+#[tokio::test]
+async fn startup_fails_when_browser_json_probe_fails() {
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("browser.json");
+    write_well_formed_unusable_browser_auth(&path);
+
+    let config =
+        ytmusic_service::config::ServiceConfig::from_parts("127.0.0.1:0", "127.0.0.1:0", path)
+            .unwrap();
+
+    let result = tokio::time::timeout(
+        std::time::Duration::from_secs(10),
+        ytmusic_service::run(config),
+    )
+    .await;
+
+    match result {
+        Ok(Err(ServiceError::YtMusic(_))) => {}
+        Ok(other) => panic!("expected startup probe failure, got {other:?}"),
+        Err(_) => panic!("startup probe did not return within timeout"),
+    }
 }
 
 #[tokio::test]

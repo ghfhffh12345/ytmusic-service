@@ -123,6 +123,28 @@ async fn reload_browser_auth_preserves_prior_version_when_load_fails() {
 }
 
 #[tokio::test]
+async fn in_flight_request_keeps_old_context_during_reload() {
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("browser.json");
+    std::fs::write(&path, valid_browser_auth_json()).unwrap();
+
+    let config =
+        ServiceConfig::from_parts("127.0.0.1:50051", "127.0.0.1:50052", path.clone()).unwrap();
+    let state = test_state_with_probe(&config, ok_probe()).await;
+
+    std::fs::write(&path, valid_browser_auth_json()).unwrap();
+
+    let before = state.auth.load();
+    let before_version = before.version.to_string();
+    let next_context = AuthContext::from_browser_auth_file(&config).await.unwrap();
+
+    state.auth.store(Arc::new(next_context));
+
+    assert_eq!(before.version.as_ref(), before_version);
+    assert_ne!(state.auth.load().version.as_ref(), before_version);
+}
+
+#[tokio::test]
 async fn concurrent_reloads_are_serialized() {
     let dir = TempDir::new().unwrap();
     let path = dir.path().join("browser.json");
