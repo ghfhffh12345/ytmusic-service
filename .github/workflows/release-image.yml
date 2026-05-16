@@ -57,7 +57,6 @@ jobs:
             fi
           }
 
-          add_tag "${release_tag}"
           add_tag "${stripped_tag}"
 
           if [[ "${prerelease}" != "true" && "${stripped_tag}" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
