@@ -23,3 +23,19 @@ pub enum ServiceError {
     #[error("cipher operation failed: {0}")]
     CipherOperation(#[source] yt_cipher::Error),
 }
+
+pub fn map_invalid_argument(message: impl Into<String>) -> tonic::Status {
+    tonic::Status::invalid_argument(message.into())
+}
+
+pub fn map_service_error(error: &ServiceError) -> tonic::Status {
+    match error {
+        ServiceError::YtMusic(source) => tonic::Status::unavailable(source.to_string()),
+        ServiceError::Cipher(source) => tonic::Status::internal(source.to_string()),
+        ServiceError::BrowserAuthPathMissing(path) => tonic::Status::failed_precondition(format!(
+            "browser auth file missing: {}",
+            path.display()
+        )),
+        _ => tonic::Status::internal(error.to_string()),
+    }
+}
