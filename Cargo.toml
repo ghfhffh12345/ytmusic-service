@@ -17,6 +17,7 @@ tonic-health = "0.12"
 tonic-reflection = "0.12"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+uuid = { version = "1", features = ["v4"] }
 yt-cipher = { git = "https://github.com/ghfhffh12345/yt-cipher.git", tag = "v0.1.0" }
 ytmusicapi = { git = "https://github.com/ghfhffh12345/ytmusicapi.git", tag = "v0.1.0" }
 

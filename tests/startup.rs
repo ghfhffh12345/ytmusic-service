@@ -144,6 +144,10 @@ async fn startup_assigns_unique_auth_context_versions_per_successful_load() {
         .unwrap();
 
     assert_ne!(first.version.as_ref(), second.version.as_ref());
+    assert_eq!(first.version.len(), 32);
+    assert_eq!(second.version.len(), 32);
+    assert!(first.version.chars().all(|ch| ch.is_ascii_hexdigit()));
+    assert!(second.version.chars().all(|ch| ch.is_ascii_hexdigit()));
     assert!(!first.version.contains(&path_display));
     assert!(!second.version.contains(&path_display));
 }

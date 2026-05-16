@@ -1,14 +1,6 @@
-use std::{
-    sync::{
-        Arc,
-        atomic::{AtomicU64, Ordering},
-    },
-    time::{SystemTime, UNIX_EPOCH},
-};
+use std::{sync::Arc, time::SystemTime};
 
 use crate::{config::ServiceConfig, error::ServiceError};
-
-static AUTH_CONTEXT_VERSION_SEQ: AtomicU64 = AtomicU64::new(0);
 
 #[derive(Clone)]
 pub struct AuthContext {
@@ -25,31 +17,12 @@ impl AuthContext {
 
         Ok(Self {
             client,
-            version: Arc::<str>::from(version_from_loaded_at(loaded_at)),
+            version: Arc::<str>::from(new_version_token()),
             loaded_at,
         })
     }
 }
 
-fn version_from_loaded_at(loaded_at: SystemTime) -> String {
-    let timestamp = loaded_at
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_nanos();
-    let sequence = AUTH_CONTEXT_VERSION_SEQ.fetch_add(1, Ordering::Relaxed);
-    format!("{timestamp:032x}-{sequence:016x}")
-}
-
-#[cfg(test)]
-mod tests {
-    use std::time::{Duration, UNIX_EPOCH};
-
-    use super::version_from_loaded_at;
-
-    #[test]
-    fn version_generation_handles_pre_epoch_clock() {
-        let version = version_from_loaded_at(UNIX_EPOCH - Duration::from_secs(1));
-
-        assert!(!version.is_empty());
-    }
+fn new_version_token() -> String {
+    uuid::Uuid::new_v4().simple().to_string()
 }
