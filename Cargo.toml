@@ -20,6 +20,7 @@ yt-cipher = { git = "https://github.com/ghfhffh12345/yt-cipher.git", tag = "v0.1
 ytmusicapi = { git = "https://github.com/ghfhffh12345/ytmusicapi.git", tag = "v0.1.0" }
 
 [build-dependencies]
+protoc-bin-vendored = "3.2.0"
 tonic-build = "0.12"
 
 [dev-dependencies]

@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package ytmusic.v1.admin;
+
+service YtMusicAdmin {
+  rpc ReloadBrowserAuth(ReloadBrowserAuthRequest) returns (ReloadBrowserAuthResponse);
+}
+
+message ReloadBrowserAuthRequest {}
+
+message ReloadBrowserAuthResponse {
+  string active_version = 1;
+}
