@@ -3,9 +3,9 @@ pub mod ytmusic {
         tonic::include_proto!("ytmusic.v1");
         pub const FILE_DESCRIPTOR_SET: &[u8] =
             tonic::include_file_descriptor_set!("ytmusic_descriptor");
-    }
 
-    pub mod admin {
-        tonic::include_proto!("ytmusic.v1.admin");
+        pub mod admin {
+            tonic::include_proto!("ytmusic.v1.admin");
+        }
     }
 }

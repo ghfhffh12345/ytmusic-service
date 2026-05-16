@@ -34,7 +34,7 @@ message Empty {}
 
 message SearchRequest {
   string query = 1;
-  string filter = 2;
+  optional SearchFilter filter = 2;
   bool ignore_spelling = 3;
 }
 
@@ -43,8 +43,8 @@ message SearchContinuationRequest {
 }
 
 message GetWatchPlaylistRequest {
-  string video_id = 1;
-  string playlist_id = 2;
+  optional string video_id = 1;
+  optional string playlist_id = 2;
   bool radio = 3;
   bool shuffle = 4;
 }
@@ -99,6 +99,15 @@ enum SearchResultType {
   SEARCH_RESULT_TYPE_PLAYLIST = 6;
   SEARCH_RESULT_TYPE_EPISODE = 7;
   SEARCH_RESULT_TYPE_PODCAST = 8;
+}
+
+enum SearchFilter {
+  SEARCH_FILTER_UNSPECIFIED = 0;
+  SEARCH_FILTER_SONGS = 1;
+  SEARCH_FILTER_VIDEOS = 2;
+  SEARCH_FILTER_ALBUMS = 3;
+  SEARCH_FILTER_ARTISTS = 4;
+  SEARCH_FILTER_PLAYLISTS = 5;
 }
 
 enum LibraryLikeStatus {
