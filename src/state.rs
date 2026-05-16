@@ -1,4 +1,4 @@
-use std::{future::Future, sync::Arc};
+use std::sync::Arc;
 
 use arc_swap::ArcSwap;
 use tokio::runtime::Builder;
@@ -10,6 +10,7 @@ use crate::error::ServiceError;
 pub struct AppState {
     pub auth: ArcSwap<AuthContext>,
     pub cipher: Arc<SharedCipher>,
+    reload_validator: ReloadValidator,
 }
 
 impl AppState {
@@ -17,6 +18,7 @@ impl AppState {
         Ok(Self {
             auth: ArcSwap::from_pointee(auth),
             cipher: Arc::new(SharedCipher::new().await?),
+            reload_validator: ReloadValidator::Production,
         })
     }
 
@@ -25,8 +27,10 @@ impl AppState {
         config: &crate::config::ServiceConfig,
     ) -> Result<String, ServiceError> {
         let next = AuthContext::from_browser_auth_file(config).await?;
-        self.activate_auth_context_with(next, |auth| async move { auth.probe().await })
-            .await
+        self.validate_reload_candidate(&next).await?;
+        let version = next.version.to_string();
+        self.auth.store(Arc::new(next));
+        Ok(version)
     }
 
     #[doc(hidden)]
@@ -34,36 +38,34 @@ impl AppState {
         Self {
             auth: ArcSwap::from_pointee(auth),
             cipher,
+            reload_validator: ReloadValidator::Production,
         }
     }
 
     #[doc(hidden)]
-    pub async fn activate_auth_context_for_tests<F, Fut>(
-        &self,
+    pub fn from_parts_for_reload_tests(
         next: AuthContext,
-        validate: F,
-    ) -> Result<String, ServiceError>
-    where
-        F: FnOnce(AuthContext) -> Fut,
-        Fut: Future<Output = Result<(), ServiceError>>,
-    {
-        self.activate_auth_context_with(next, validate).await
+        cipher: Arc<SharedCipher>,
+        validator: Arc<dyn Fn(&AuthContext) -> Result<(), ServiceError> + Send + Sync>,
+    ) -> Self {
+        Self {
+            auth: ArcSwap::from_pointee(next),
+            cipher,
+            reload_validator: ReloadValidator::Injected(validator),
+        }
     }
 
-    async fn activate_auth_context_with<F, Fut>(
-        &self,
-        next: AuthContext,
-        validate: F,
-    ) -> Result<String, ServiceError>
-    where
-        F: FnOnce(AuthContext) -> Fut,
-        Fut: Future<Output = Result<(), ServiceError>>,
-    {
-        validate(next.clone()).await?;
-        let version = next.version.to_string();
-        self.auth.store(Arc::new(next));
-        Ok(version)
+    async fn validate_reload_candidate(&self, next: &AuthContext) -> Result<(), ServiceError> {
+        match &self.reload_validator {
+            ReloadValidator::Production => next.probe().await,
+            ReloadValidator::Injected(validator) => validator(next),
+        }
     }
+}
+
+enum ReloadValidator {
+    Production,
+    Injected(Arc<dyn Fn(&AuthContext) -> Result<(), ServiceError> + Send + Sync>),
 }
 
 #[derive(Clone)]
