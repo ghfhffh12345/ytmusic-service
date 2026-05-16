@@ -1,4 +1,5 @@
 use tempfile::TempDir;
+use ytmusic_service::error::ServiceError;
 
 #[tokio::test]
 async fn startup_fails_when_browser_json_is_missing() {
@@ -8,10 +9,15 @@ async fn startup_fails_when_browser_json_is_missing() {
     let result = ytmusic_service::config::ServiceConfig::from_parts(
         "127.0.0.1:50051",
         "127.0.0.1:50052",
-        path,
+        path.clone(),
     );
 
-    assert!(result.is_err());
+    match result {
+        Err(ServiceError::BrowserAuthPathMissing(returned_path)) => {
+            assert_eq!(returned_path, path);
+        }
+        other => panic!("expected BrowserAuthPathMissing, got {other:?}"),
+    }
 }
 
 #[tokio::test]
