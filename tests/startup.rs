@@ -127,6 +127,7 @@ async fn startup_assigns_unique_auth_context_versions_per_successful_load() {
     let dir = TempDir::new().unwrap();
     let path = dir.path().join("browser.json");
     write_minimal_valid_browser_auth(&path);
+    let path_display = path.display().to_string();
 
     let config = ytmusic_service::config::ServiceConfig::from_parts(
         "127.0.0.1:50051",
@@ -143,4 +144,6 @@ async fn startup_assigns_unique_auth_context_versions_per_successful_load() {
         .unwrap();
 
     assert_ne!(first.version.as_ref(), second.version.as_ref());
+    assert!(!first.version.contains(&path_display));
+    assert!(!second.version.contains(&path_display));
 }

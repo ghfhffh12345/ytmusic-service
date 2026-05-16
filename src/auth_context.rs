@@ -1,5 +1,4 @@
 use std::{
-    path::Path,
     sync::{
         Arc,
         atomic::{AtomicU64, Ordering},
@@ -26,17 +25,31 @@ impl AuthContext {
 
         Ok(Self {
             client,
-            version: Arc::<str>::from(version_from_path(config.browser_auth_path(), loaded_at)),
+            version: Arc::<str>::from(version_from_loaded_at(loaded_at)),
             loaded_at,
         })
     }
 }
 
-fn version_from_path(path: &Path, loaded_at: SystemTime) -> String {
+fn version_from_loaded_at(loaded_at: SystemTime) -> String {
     let timestamp = loaded_at
         .duration_since(UNIX_EPOCH)
-        .expect("system clock before unix epoch")
+        .unwrap_or_default()
         .as_nanos();
     let sequence = AUTH_CONTEXT_VERSION_SEQ.fetch_add(1, Ordering::Relaxed);
-    format!("{}:{timestamp}:{sequence}", path.display())
+    format!("{timestamp:032x}-{sequence:016x}")
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::{Duration, UNIX_EPOCH};
+
+    use super::version_from_loaded_at;
+
+    #[test]
+    fn version_generation_handles_pre_epoch_clock() {
+        let version = version_from_loaded_at(UNIX_EPOCH - Duration::from_secs(1));
+
+        assert!(!version.is_empty());
+    }
 }
