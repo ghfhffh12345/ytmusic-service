@@ -146,6 +146,7 @@ async fn run_cipher_loop(
 #[cfg(test)]
 mod tests {
     use super::{AppState, SharedCipher};
+    use crate::adapters::cipher::CipherAdapter;
     use crate::error::ServiceError;
     use tokio::sync::mpsc;
 
@@ -180,5 +181,25 @@ mod tests {
         let error = cipher.signature_timestamp().await.unwrap_err();
 
         assert!(matches!(error, ServiceError::CipherWorkerUnavailable));
+    }
+
+    #[tokio::test]
+    async fn cipher_adapter_normalizes_cipher_operation_failures() {
+        let (command_tx, mut command_rx) = mpsc::channel(1);
+        let cipher = SharedCipher { command_tx };
+
+        tokio::spawn(async move {
+            let command = command_rx.recv().await.expect("decipher command");
+            match command {
+                super::CipherCommand::Decipher { reply_tx, .. } => {
+                    let _ = reply_tx.send(Err(yt_cipher::Error::CipherParse));
+                }
+                _ => panic!("expected decipher command"),
+            }
+        });
+
+        let error = CipherAdapter::decipher(&cipher, "raw").await.unwrap_err();
+
+        assert!(matches!(error, ServiceError::Cipher(_)));
     }
 }
