@@ -136,12 +136,12 @@ async fn in_flight_request_keeps_old_context_during_reload() {
 
     let before = state.auth.load();
     let before_version = before.version.to_string();
-    let next_context = AuthContext::from_browser_auth_file(&config).await.unwrap();
+    let new_version = state.reload_browser_auth(&config).await.unwrap();
 
-    state.auth.store(Arc::new(next_context));
-
+    let current = state.auth.load();
     assert_eq!(before.version.as_ref(), before_version);
-    assert_ne!(state.auth.load().version.as_ref(), before_version);
+    assert_ne!(current.version.as_ref(), before_version);
+    assert_eq!(current.version.as_ref(), new_version);
 }
 
 #[tokio::test]
