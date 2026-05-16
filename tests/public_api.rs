@@ -4,7 +4,9 @@ use tonic::{Code, Request};
 use ytmusic_service::{
     auth_context::AuthContext,
     error::{ServiceError, map_service_error},
-    proto::ytmusic::v1::{Empty, SearchRequest, yt_music_public_server::YtMusicPublic},
+    proto::ytmusic::v1::{
+        AccountInfoResponse, Empty, SearchRequest, yt_music_public_server::YtMusicPublic,
+    },
     servers::public::PublicService,
     state::{AppState, SharedCipher},
 };
@@ -36,7 +38,7 @@ async fn public_search_rejects_empty_query() {
 }
 
 #[tokio::test]
-async fn public_library_playlists_is_unimplemented() {
+async fn public_library_playlists_surfaces_browser_auth_requirement() {
     let auth = AuthContext {
         client: ytmusicapi::YtMusic::new().expect("test client"),
         version: Arc::<str>::from("test-version"),
@@ -55,6 +57,22 @@ async fn public_library_playlists_is_unimplemented() {
         .unwrap_err();
 
     assert_eq!(status.code(), Code::Unimplemented);
+    assert!(
+        status.message().contains("requires browser authentication"),
+        "unexpected status message: {}",
+        status.message()
+    );
+}
+
+#[tokio::test]
+async fn account_info_response_keeps_name_field() {
+    let response = AccountInfoResponse {
+        account_name: "listener@example.com".to_owned(),
+        channel_handle: None,
+        account_photo_url: String::new(),
+    };
+
+    assert_eq!(response.account_name, "listener@example.com");
 }
 
 #[test]

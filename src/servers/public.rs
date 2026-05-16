@@ -93,135 +93,262 @@ impl YtMusicPublic for PublicService {
         &self,
         _request: Request<pb::Empty>,
     ) -> Result<Response<pb::LibraryPlaylistsResponse>, Status> {
-        Err(rpc_not_implemented("get_library_playlists"))
+        let auth = self.state.auth.load();
+        let page = YtMusicAdapter::get_library_playlists(&auth)
+            .await
+            .map_err(|error| crate::error::map_service_error(&error))?;
+        Ok(Response::new(mapping::library_playlists_page_to_proto(
+            page,
+        )))
     }
 
     async fn get_library_playlists_continuation(
         &self,
-        _request: Request<pb::GetLibraryPlaylistsContinuationRequest>,
+        request: Request<pb::GetLibraryPlaylistsContinuationRequest>,
     ) -> Result<Response<pb::LibraryPlaylistsResponse>, Status> {
-        Err(rpc_not_implemented("get_library_playlists_continuation"))
+        let auth = self.state.auth.load();
+        let token = continuation_token(
+            request.into_inner().token,
+            "library playlists continuation token must not be empty",
+            ytmusicapi::LibraryPlaylistsContinuationToken::new,
+        )?;
+        let page = YtMusicAdapter::get_library_playlists_continuation(&auth, token)
+            .await
+            .map_err(|error| crate::error::map_service_error(&error))?;
+        Ok(Response::new(mapping::library_playlists_page_to_proto(
+            page,
+        )))
     }
 
     async fn get_account_info(
         &self,
         _request: Request<pb::Empty>,
     ) -> Result<Response<pb::AccountInfoResponse>, Status> {
-        Err(rpc_not_implemented("get_account_info"))
+        let auth = self.state.auth.load();
+        let account_info = YtMusicAdapter::get_account_info(&auth)
+            .await
+            .map_err(|error| crate::error::map_service_error(&error))?;
+        Ok(Response::new(mapping::account_info_to_proto(account_info)))
     }
 
     async fn get_library_artists(
         &self,
         _request: Request<pb::Empty>,
     ) -> Result<Response<pb::LibraryArtistsResponse>, Status> {
-        Err(rpc_not_implemented("get_library_artists"))
+        let auth = self.state.auth.load();
+        let page = YtMusicAdapter::get_library_artists(&auth)
+            .await
+            .map_err(|error| crate::error::map_service_error(&error))?;
+        Ok(Response::new(mapping::library_artists_page_to_proto(page)))
     }
 
     async fn get_library_artists_continuation(
         &self,
-        _request: Request<pb::GetLibraryArtistsContinuationRequest>,
+        request: Request<pb::GetLibraryArtistsContinuationRequest>,
     ) -> Result<Response<pb::LibraryArtistsResponse>, Status> {
-        Err(rpc_not_implemented("get_library_artists_continuation"))
+        let auth = self.state.auth.load();
+        let token = continuation_token(
+            request.into_inner().token,
+            "library artists continuation token must not be empty",
+            ytmusicapi::LibraryArtistsContinuationToken::new,
+        )?;
+        let page = YtMusicAdapter::get_library_artists_continuation(&auth, token)
+            .await
+            .map_err(|error| crate::error::map_service_error(&error))?;
+        Ok(Response::new(mapping::library_artists_page_to_proto(page)))
     }
 
     async fn get_library_albums(
         &self,
         _request: Request<pb::Empty>,
     ) -> Result<Response<pb::LibraryAlbumsResponse>, Status> {
-        Err(rpc_not_implemented("get_library_albums"))
+        let auth = self.state.auth.load();
+        let page = YtMusicAdapter::get_library_albums(&auth)
+            .await
+            .map_err(|error| crate::error::map_service_error(&error))?;
+        Ok(Response::new(mapping::library_albums_page_to_proto(page)))
     }
 
     async fn get_library_albums_continuation(
         &self,
-        _request: Request<pb::GetLibraryAlbumsContinuationRequest>,
+        request: Request<pb::GetLibraryAlbumsContinuationRequest>,
     ) -> Result<Response<pb::LibraryAlbumsResponse>, Status> {
-        Err(rpc_not_implemented("get_library_albums_continuation"))
+        let auth = self.state.auth.load();
+        let token = continuation_token(
+            request.into_inner().token,
+            "library albums continuation token must not be empty",
+            ytmusicapi::LibraryAlbumsContinuationToken::new,
+        )?;
+        let page = YtMusicAdapter::get_library_albums_continuation(&auth, token)
+            .await
+            .map_err(|error| crate::error::map_service_error(&error))?;
+        Ok(Response::new(mapping::library_albums_page_to_proto(page)))
     }
 
     async fn get_library_subscriptions(
         &self,
         _request: Request<pb::Empty>,
     ) -> Result<Response<pb::LibrarySubscriptionsResponse>, Status> {
-        Err(rpc_not_implemented("get_library_subscriptions"))
+        let auth = self.state.auth.load();
+        let page = YtMusicAdapter::get_library_subscriptions(&auth)
+            .await
+            .map_err(|error| crate::error::map_service_error(&error))?;
+        Ok(Response::new(mapping::library_subscriptions_page_to_proto(
+            page,
+        )))
     }
 
     async fn get_library_subscriptions_continuation(
         &self,
-        _request: Request<pb::GetLibrarySubscriptionsContinuationRequest>,
+        request: Request<pb::GetLibrarySubscriptionsContinuationRequest>,
     ) -> Result<Response<pb::LibrarySubscriptionsResponse>, Status> {
-        Err(rpc_not_implemented(
-            "get_library_subscriptions_continuation",
-        ))
+        let auth = self.state.auth.load();
+        let token = continuation_token(
+            request.into_inner().token,
+            "library subscriptions continuation token must not be empty",
+            ytmusicapi::LibrarySubscriptionsContinuationToken::new,
+        )?;
+        let page = YtMusicAdapter::get_library_subscriptions_continuation(&auth, token)
+            .await
+            .map_err(|error| crate::error::map_service_error(&error))?;
+        Ok(Response::new(mapping::library_subscriptions_page_to_proto(
+            page,
+        )))
     }
 
     async fn get_library_channels(
         &self,
         _request: Request<pb::Empty>,
     ) -> Result<Response<pb::LibraryChannelsResponse>, Status> {
-        Err(rpc_not_implemented("get_library_channels"))
+        let auth = self.state.auth.load();
+        let page = YtMusicAdapter::get_library_channels(&auth)
+            .await
+            .map_err(|error| crate::error::map_service_error(&error))?;
+        Ok(Response::new(mapping::library_channels_page_to_proto(page)))
     }
 
     async fn get_library_channels_continuation(
         &self,
-        _request: Request<pb::GetLibraryChannelsContinuationRequest>,
+        request: Request<pb::GetLibraryChannelsContinuationRequest>,
     ) -> Result<Response<pb::LibraryChannelsResponse>, Status> {
-        Err(rpc_not_implemented("get_library_channels_continuation"))
+        let auth = self.state.auth.load();
+        let token = continuation_token(
+            request.into_inner().token,
+            "library channels continuation token must not be empty",
+            ytmusicapi::LibraryChannelsContinuationToken::new,
+        )?;
+        let page = YtMusicAdapter::get_library_channels_continuation(&auth, token)
+            .await
+            .map_err(|error| crate::error::map_service_error(&error))?;
+        Ok(Response::new(mapping::library_channels_page_to_proto(page)))
     }
 
     async fn get_library_podcasts(
         &self,
         _request: Request<pb::Empty>,
     ) -> Result<Response<pb::LibraryPodcastsResponse>, Status> {
-        Err(rpc_not_implemented("get_library_podcasts"))
+        let auth = self.state.auth.load();
+        let page = YtMusicAdapter::get_library_podcasts(&auth)
+            .await
+            .map_err(|error| crate::error::map_service_error(&error))?;
+        Ok(Response::new(mapping::library_podcasts_page_to_proto(page)))
     }
 
     async fn get_library_podcasts_continuation(
         &self,
-        _request: Request<pb::GetLibraryPodcastsContinuationRequest>,
+        request: Request<pb::GetLibraryPodcastsContinuationRequest>,
     ) -> Result<Response<pb::LibraryPodcastsResponse>, Status> {
-        Err(rpc_not_implemented("get_library_podcasts_continuation"))
+        let auth = self.state.auth.load();
+        let token = continuation_token(
+            request.into_inner().token,
+            "library podcasts continuation token must not be empty",
+            ytmusicapi::LibraryPodcastsContinuationToken::new,
+        )?;
+        let page = YtMusicAdapter::get_library_podcasts_continuation(&auth, token)
+            .await
+            .map_err(|error| crate::error::map_service_error(&error))?;
+        Ok(Response::new(mapping::library_podcasts_page_to_proto(page)))
     }
 
     async fn get_library_songs(
         &self,
         _request: Request<pb::Empty>,
     ) -> Result<Response<pb::LibrarySongsResponse>, Status> {
-        Err(rpc_not_implemented("get_library_songs"))
+        let auth = self.state.auth.load();
+        let page = YtMusicAdapter::get_library_songs(&auth)
+            .await
+            .map_err(|error| crate::error::map_service_error(&error))?;
+        Ok(Response::new(mapping::library_songs_page_to_proto(page)))
     }
 
     async fn get_library_songs_continuation(
         &self,
-        _request: Request<pb::GetLibrarySongsContinuationRequest>,
+        request: Request<pb::GetLibrarySongsContinuationRequest>,
     ) -> Result<Response<pb::LibrarySongsResponse>, Status> {
-        Err(rpc_not_implemented("get_library_songs_continuation"))
+        let auth = self.state.auth.load();
+        let token = continuation_token(
+            request.into_inner().token,
+            "library songs continuation token must not be empty",
+            ytmusicapi::LibrarySongsContinuationToken::new,
+        )?;
+        let page = YtMusicAdapter::get_library_songs_continuation(&auth, token)
+            .await
+            .map_err(|error| crate::error::map_service_error(&error))?;
+        Ok(Response::new(mapping::library_songs_page_to_proto(page)))
     }
 
     async fn get_liked_songs(
         &self,
         _request: Request<pb::Empty>,
     ) -> Result<Response<pb::LikedSongsResponse>, Status> {
-        Err(rpc_not_implemented("get_liked_songs"))
+        let auth = self.state.auth.load();
+        let page = YtMusicAdapter::get_liked_songs(&auth)
+            .await
+            .map_err(|error| crate::error::map_service_error(&error))?;
+        Ok(Response::new(mapping::liked_songs_page_to_proto(page)))
     }
 
     async fn get_liked_songs_continuation(
         &self,
-        _request: Request<pb::GetLikedSongsContinuationRequest>,
+        request: Request<pb::GetLikedSongsContinuationRequest>,
     ) -> Result<Response<pb::LikedSongsResponse>, Status> {
-        Err(rpc_not_implemented("get_liked_songs_continuation"))
+        let auth = self.state.auth.load();
+        let token = continuation_token(
+            request.into_inner().token,
+            "liked songs continuation token must not be empty",
+            ytmusicapi::LikedSongsContinuationToken::new,
+        )?;
+        let page = YtMusicAdapter::get_liked_songs_continuation(&auth, token)
+            .await
+            .map_err(|error| crate::error::map_service_error(&error))?;
+        Ok(Response::new(mapping::liked_songs_page_to_proto(page)))
     }
 
     async fn get_saved_episodes(
         &self,
         _request: Request<pb::Empty>,
     ) -> Result<Response<pb::SavedEpisodesResponse>, Status> {
-        Err(rpc_not_implemented("get_saved_episodes"))
+        let auth = self.state.auth.load();
+        let page = YtMusicAdapter::get_saved_episodes(&auth)
+            .await
+            .map_err(|error| crate::error::map_service_error(&error))?;
+        Ok(Response::new(mapping::saved_episodes_page_to_proto(page)))
     }
 
     async fn get_saved_episodes_continuation(
         &self,
-        _request: Request<pb::GetSavedEpisodesContinuationRequest>,
+        request: Request<pb::GetSavedEpisodesContinuationRequest>,
     ) -> Result<Response<pb::SavedEpisodesResponse>, Status> {
-        Err(rpc_not_implemented("get_saved_episodes_continuation"))
+        let auth = self.state.auth.load();
+        let token = continuation_token(
+            request.into_inner().token,
+            "saved episodes continuation token must not be empty",
+            ytmusicapi::SavedEpisodesContinuationToken::new,
+        )?;
+        let page = YtMusicAdapter::get_saved_episodes_continuation(&auth, token)
+            .await
+            .map_err(|error| crate::error::map_service_error(&error))?;
+        Ok(Response::new(mapping::saved_episodes_page_to_proto(page)))
     }
 
     async fn decipher(
@@ -345,10 +472,6 @@ fn continuation_token<T>(
     Ok(build(required_non_empty(value, message)?))
 }
 
-fn rpc_not_implemented(name: &'static str) -> Status {
-    Status::unimplemented(format!("{name} adapter wiring has not been added yet"))
-}
-
 mod mapping {
     use crate::proto::ytmusic::v1::{self as pb, search_result_item};
 
@@ -378,6 +501,179 @@ mod mapping {
             playability_status: Some(song_playability_status_to_proto(song.playability_status)),
             streaming_data: song.streaming_data.map(song_streaming_data_to_proto),
             microformat: song.microformat.map(song_microformat_to_proto),
+        }
+    }
+
+    pub fn library_playlists_page_to_proto(
+        page: ytmusicapi::Page<
+            ytmusicapi::LibraryPlaylist,
+            ytmusicapi::LibraryPlaylistsContinuationToken,
+        >,
+    ) -> pb::LibraryPlaylistsResponse {
+        pb::LibraryPlaylistsResponse {
+            items: page
+                .items
+                .into_iter()
+                .map(library_playlist_item_to_proto)
+                .collect(),
+            continuation: page
+                .continuation
+                .map(library_playlists_continuation_token_to_proto),
+        }
+    }
+
+    pub fn account_info_to_proto(account_info: ytmusicapi::AccountInfo) -> pb::AccountInfoResponse {
+        pb::AccountInfoResponse {
+            account_name: account_info.account_name,
+            channel_handle: account_info.channel_handle,
+            account_photo_url: account_info.account_photo_url,
+        }
+    }
+
+    pub fn library_artists_page_to_proto(
+        page: ytmusicapi::Page<
+            ytmusicapi::LibraryArtist,
+            ytmusicapi::LibraryArtistsContinuationToken,
+        >,
+    ) -> pb::LibraryArtistsResponse {
+        pb::LibraryArtistsResponse {
+            items: page
+                .items
+                .into_iter()
+                .map(library_artist_item_to_proto)
+                .collect(),
+            continuation: page
+                .continuation
+                .map(library_artists_continuation_token_to_proto),
+        }
+    }
+
+    pub fn library_albums_page_to_proto(
+        page: ytmusicapi::Page<
+            ytmusicapi::LibraryAlbum,
+            ytmusicapi::LibraryAlbumsContinuationToken,
+        >,
+    ) -> pb::LibraryAlbumsResponse {
+        pb::LibraryAlbumsResponse {
+            items: page
+                .items
+                .into_iter()
+                .map(library_album_item_to_proto)
+                .collect(),
+            continuation: page
+                .continuation
+                .map(library_albums_continuation_token_to_proto),
+        }
+    }
+
+    pub fn library_subscriptions_page_to_proto(
+        page: ytmusicapi::Page<
+            ytmusicapi::LibrarySubscription,
+            ytmusicapi::LibrarySubscriptionsContinuationToken,
+        >,
+    ) -> pb::LibrarySubscriptionsResponse {
+        pb::LibrarySubscriptionsResponse {
+            items: page
+                .items
+                .into_iter()
+                .map(library_subscription_item_to_proto)
+                .collect(),
+            continuation: page
+                .continuation
+                .map(library_subscriptions_continuation_token_to_proto),
+        }
+    }
+
+    pub fn library_channels_page_to_proto(
+        page: ytmusicapi::Page<
+            ytmusicapi::LibraryChannel,
+            ytmusicapi::LibraryChannelsContinuationToken,
+        >,
+    ) -> pb::LibraryChannelsResponse {
+        pb::LibraryChannelsResponse {
+            items: page
+                .items
+                .into_iter()
+                .map(library_channel_item_to_proto)
+                .collect(),
+            continuation: page
+                .continuation
+                .map(library_channels_continuation_token_to_proto),
+        }
+    }
+
+    pub fn library_podcasts_page_to_proto(
+        page: ytmusicapi::Page<
+            ytmusicapi::LibraryPodcast,
+            ytmusicapi::LibraryPodcastsContinuationToken,
+        >,
+    ) -> pb::LibraryPodcastsResponse {
+        pb::LibraryPodcastsResponse {
+            items: page
+                .items
+                .into_iter()
+                .map(library_podcast_item_to_proto)
+                .collect(),
+            continuation: page
+                .continuation
+                .map(library_podcasts_continuation_token_to_proto),
+        }
+    }
+
+    pub fn library_songs_page_to_proto(
+        page: ytmusicapi::Page<ytmusicapi::LibrarySong, ytmusicapi::LibrarySongsContinuationToken>,
+    ) -> pb::LibrarySongsResponse {
+        pb::LibrarySongsResponse {
+            items: page
+                .items
+                .into_iter()
+                .map(library_song_item_to_proto)
+                .collect(),
+            continuation: page
+                .continuation
+                .map(library_songs_continuation_token_to_proto),
+        }
+    }
+
+    pub fn liked_songs_page_to_proto(page: ytmusicapi::LikedSongsPage) -> pb::LikedSongsResponse {
+        pb::LikedSongsResponse {
+            playlist_id: page.playlist_id,
+            title: page.title,
+            items: page
+                .items
+                .into_iter()
+                .map(liked_song_item_to_proto)
+                .collect(),
+            thumbnails: page
+                .thumbnails
+                .into_iter()
+                .map(thumbnail_to_proto)
+                .collect(),
+            continuation: page
+                .continuation
+                .map(liked_songs_continuation_token_to_proto),
+        }
+    }
+
+    pub fn saved_episodes_page_to_proto(
+        page: ytmusicapi::SavedEpisodesPage,
+    ) -> pb::SavedEpisodesResponse {
+        pb::SavedEpisodesResponse {
+            playlist_id: page.playlist_id,
+            title: page.title,
+            items: page
+                .items
+                .into_iter()
+                .map(saved_episode_item_to_proto)
+                .collect(),
+            thumbnails: page
+                .thumbnails
+                .into_iter()
+                .map(thumbnail_to_proto)
+                .collect(),
+            continuation: page
+                .continuation
+                .map(saved_episodes_continuation_token_to_proto),
         }
     }
 
@@ -565,6 +861,153 @@ mod mapping {
         }
     }
 
+    fn library_playlist_item_to_proto(
+        item: ytmusicapi::LibraryPlaylist,
+    ) -> pb::LibraryPlaylistItem {
+        pb::LibraryPlaylistItem {
+            playlist_id: item.playlist_id,
+            title: item.title,
+            authors: item.authors.into_iter().map(artist_ref_to_proto).collect(),
+            item_count: item.item_count,
+            thumbnails: item
+                .thumbnails
+                .into_iter()
+                .map(thumbnail_to_proto)
+                .collect(),
+        }
+    }
+
+    fn library_artist_item_to_proto(item: ytmusicapi::LibraryArtist) -> pb::LibraryArtistItem {
+        pb::LibraryArtistItem {
+            browse_id: item.browse_id,
+            artist: item.artist,
+            subscribers: item.subscribers,
+            thumbnails: item
+                .thumbnails
+                .into_iter()
+                .map(thumbnail_to_proto)
+                .collect(),
+        }
+    }
+
+    fn library_album_item_to_proto(item: ytmusicapi::LibraryAlbum) -> pb::LibraryAlbumItem {
+        pb::LibraryAlbumItem {
+            browse_id: item.browse_id,
+            playlist_id: item.playlist_id,
+            title: item.title,
+            type_label: item.type_label,
+            artists: item.artists.into_iter().map(artist_ref_to_proto).collect(),
+            year: item.year,
+            thumbnails: item
+                .thumbnails
+                .into_iter()
+                .map(thumbnail_to_proto)
+                .collect(),
+        }
+    }
+
+    fn library_subscription_item_to_proto(
+        item: ytmusicapi::LibrarySubscription,
+    ) -> pb::LibrarySubscriptionItem {
+        pb::LibrarySubscriptionItem {
+            browse_id: item.browse_id,
+            name: item.name,
+            subscribers: item.subscribers,
+            thumbnails: item
+                .thumbnails
+                .into_iter()
+                .map(thumbnail_to_proto)
+                .collect(),
+        }
+    }
+
+    fn library_channel_item_to_proto(item: ytmusicapi::LibraryChannel) -> pb::LibraryChannelItem {
+        pb::LibraryChannelItem {
+            browse_id: item.browse_id,
+            name: item.name,
+            subscribers: item.subscribers,
+            thumbnails: item
+                .thumbnails
+                .into_iter()
+                .map(thumbnail_to_proto)
+                .collect(),
+        }
+    }
+
+    fn library_podcast_item_to_proto(item: ytmusicapi::LibraryPodcast) -> pb::LibraryPodcastItem {
+        pb::LibraryPodcastItem {
+            title: item.title,
+            browse_id: item.browse_id,
+            podcast_id: item.podcast_id,
+            channel: Some(library_podcast_channel_to_proto(item.channel)),
+            thumbnails: item
+                .thumbnails
+                .into_iter()
+                .map(thumbnail_to_proto)
+                .collect(),
+        }
+    }
+
+    fn library_podcast_channel_to_proto(
+        channel: ytmusicapi::LibraryPodcastChannel,
+    ) -> pb::LibraryPodcastChannel {
+        pb::LibraryPodcastChannel {
+            id: channel.id,
+            name: channel.name,
+        }
+    }
+
+    fn library_song_item_to_proto(item: ytmusicapi::LibrarySong) -> pb::LibrarySongItem {
+        pb::LibrarySongItem {
+            video_id: item.video_id,
+            title: item.title,
+            artists: item.artists.into_iter().map(artist_ref_to_proto).collect(),
+            album: item.album.map(album_ref_to_proto),
+            duration: item.duration,
+            thumbnails: item
+                .thumbnails
+                .into_iter()
+                .map(thumbnail_to_proto)
+                .collect(),
+            like_status: item
+                .like_status
+                .map(|status| like_status_to_proto(status) as i32),
+        }
+    }
+
+    fn liked_song_item_to_proto(item: ytmusicapi::LikedSongItem) -> pb::LikedSongItem {
+        pb::LikedSongItem {
+            video_id: item.video_id,
+            title: item.title,
+            artists: item.artists.into_iter().map(artist_ref_to_proto).collect(),
+            album: item.album.map(album_ref_to_proto),
+            duration: item.duration,
+            thumbnails: item
+                .thumbnails
+                .into_iter()
+                .map(thumbnail_to_proto)
+                .collect(),
+            like_status: item
+                .like_status
+                .map(|status| like_status_to_proto(status) as i32),
+        }
+    }
+
+    fn saved_episode_item_to_proto(item: ytmusicapi::SavedEpisodeItem) -> pb::SavedEpisodeItem {
+        pb::SavedEpisodeItem {
+            video_id: item.video_id,
+            title: item.title,
+            channel: item.channel,
+            podcast: item.podcast,
+            duration: item.duration,
+            thumbnails: item
+                .thumbnails
+                .into_iter()
+                .map(thumbnail_to_proto)
+                .collect(),
+        }
+    }
+
     fn song_video_details_to_proto(details: ytmusicapi::SongVideoDetails) -> pb::SongVideoDetails {
         pb::SongVideoDetails {
             video_id: details.video_id,
@@ -692,6 +1135,78 @@ mod mapping {
         token: ytmusicapi::WatchPlaylistContinuationToken,
     ) -> pb::WatchPlaylistContinuationToken {
         pb::WatchPlaylistContinuationToken {
+            value: token.as_str().to_owned(),
+        }
+    }
+
+    fn library_playlists_continuation_token_to_proto(
+        token: ytmusicapi::LibraryPlaylistsContinuationToken,
+    ) -> pb::LibraryPlaylistsContinuationToken {
+        pb::LibraryPlaylistsContinuationToken {
+            value: token.as_str().to_owned(),
+        }
+    }
+
+    fn library_artists_continuation_token_to_proto(
+        token: ytmusicapi::LibraryArtistsContinuationToken,
+    ) -> pb::LibraryArtistsContinuationToken {
+        pb::LibraryArtistsContinuationToken {
+            value: token.as_str().to_owned(),
+        }
+    }
+
+    fn library_albums_continuation_token_to_proto(
+        token: ytmusicapi::LibraryAlbumsContinuationToken,
+    ) -> pb::LibraryAlbumsContinuationToken {
+        pb::LibraryAlbumsContinuationToken {
+            value: token.as_str().to_owned(),
+        }
+    }
+
+    fn library_subscriptions_continuation_token_to_proto(
+        token: ytmusicapi::LibrarySubscriptionsContinuationToken,
+    ) -> pb::LibrarySubscriptionsContinuationToken {
+        pb::LibrarySubscriptionsContinuationToken {
+            value: token.as_str().to_owned(),
+        }
+    }
+
+    fn library_channels_continuation_token_to_proto(
+        token: ytmusicapi::LibraryChannelsContinuationToken,
+    ) -> pb::LibraryChannelsContinuationToken {
+        pb::LibraryChannelsContinuationToken {
+            value: token.as_str().to_owned(),
+        }
+    }
+
+    fn library_podcasts_continuation_token_to_proto(
+        token: ytmusicapi::LibraryPodcastsContinuationToken,
+    ) -> pb::LibraryPodcastsContinuationToken {
+        pb::LibraryPodcastsContinuationToken {
+            value: token.as_str().to_owned(),
+        }
+    }
+
+    fn library_songs_continuation_token_to_proto(
+        token: ytmusicapi::LibrarySongsContinuationToken,
+    ) -> pb::LibrarySongsContinuationToken {
+        pb::LibrarySongsContinuationToken {
+            value: token.as_str().to_owned(),
+        }
+    }
+
+    fn liked_songs_continuation_token_to_proto(
+        token: ytmusicapi::LikedSongsContinuationToken,
+    ) -> pb::LikedSongsContinuationToken {
+        pb::LikedSongsContinuationToken {
+            value: token.as_str().to_owned(),
+        }
+    }
+
+    fn saved_episodes_continuation_token_to_proto(
+        token: ytmusicapi::SavedEpisodesContinuationToken,
+    ) -> pb::SavedEpisodesContinuationToken {
+        pb::SavedEpisodesContinuationToken {
             value: token.as_str().to_owned(),
         }
     }
