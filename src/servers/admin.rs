@@ -1,2 +1,34 @@
-// Placeholder until Task 8 adds the admin gRPC service implementation.
-pub const PLACEHOLDER_MESSAGE: &str = "admin service placeholder";
+use std::sync::Arc;
+
+use tonic::{Request, Response, Status};
+
+use crate::{
+    config::ServiceConfig,
+    proto::ytmusic::v1::admin::{
+        ReloadBrowserAuthRequest, ReloadBrowserAuthResponse, yt_music_admin_server::YtMusicAdmin,
+    },
+    state::AppState,
+};
+
+pub struct AdminService {
+    pub state: Arc<AppState>,
+    pub config: ServiceConfig,
+}
+
+#[tonic::async_trait]
+impl YtMusicAdmin for AdminService {
+    async fn reload_browser_auth(
+        &self,
+        _request: Request<ReloadBrowserAuthRequest>,
+    ) -> Result<Response<ReloadBrowserAuthResponse>, Status> {
+        let version = self
+            .state
+            .reload_browser_auth(&self.config)
+            .await
+            .map_err(|error| crate::error::map_service_error(&error))?;
+
+        Ok(Response::new(ReloadBrowserAuthResponse {
+            active_version: version,
+        }))
+    }
+}

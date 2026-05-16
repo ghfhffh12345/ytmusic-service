@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{future::Future, sync::Arc};
 
 use arc_swap::ArcSwap;
 use tokio::runtime::Builder;
@@ -20,12 +20,49 @@ impl AppState {
         })
     }
 
+    pub async fn reload_browser_auth(
+        &self,
+        config: &crate::config::ServiceConfig,
+    ) -> Result<String, ServiceError> {
+        let next = AuthContext::from_browser_auth_file(config).await?;
+        self.activate_auth_context_with(next, |auth| async move { auth.probe().await })
+            .await
+    }
+
     #[doc(hidden)]
     pub fn from_parts_for_tests(auth: AuthContext, cipher: Arc<SharedCipher>) -> Self {
         Self {
             auth: ArcSwap::from_pointee(auth),
             cipher,
         }
+    }
+
+    #[doc(hidden)]
+    pub async fn activate_auth_context_for_tests<F, Fut>(
+        &self,
+        next: AuthContext,
+        validate: F,
+    ) -> Result<String, ServiceError>
+    where
+        F: FnOnce(AuthContext) -> Fut,
+        Fut: Future<Output = Result<(), ServiceError>>,
+    {
+        self.activate_auth_context_with(next, validate).await
+    }
+
+    async fn activate_auth_context_with<F, Fut>(
+        &self,
+        next: AuthContext,
+        validate: F,
+    ) -> Result<String, ServiceError>
+    where
+        F: FnOnce(AuthContext) -> Fut,
+        Fut: Future<Output = Result<(), ServiceError>>,
+    {
+        validate(next.clone()).await?;
+        let version = next.version.to_string();
+        self.auth.store(Arc::new(next));
+        Ok(version)
     }
 }
 

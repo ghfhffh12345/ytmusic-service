@@ -1,14 +1,17 @@
 use std::{sync::Arc, time::SystemTime};
 
+use tempfile::TempDir;
 use tonic::{Code, Request};
 use ytmusic_service::{
     auth_context::AuthContext,
+    config::ServiceConfig,
     error::{ServiceError, map_service_error},
+    proto::ytmusic::v1::admin::{ReloadBrowserAuthRequest, yt_music_admin_server::YtMusicAdmin},
     proto::ytmusic::v1::{
         AccountInfoResponse, Empty, GetLibraryPlaylistsContinuationRequest, SearchRequest,
         yt_music_public_server::YtMusicPublic,
     },
-    servers::public::PublicService,
+    servers::{admin::AdminService, public::PublicService},
     state::{AppState, SharedCipher},
 };
 
@@ -121,10 +124,22 @@ fn map_service_error_preserves_status_categories() {
     assert_eq!(invalid_argument.code(), Code::InvalidArgument);
 }
 
-#[test]
-fn admin_placeholder_module_is_explicit() {
-    assert_eq!(
-        ytmusic_service::servers::admin::PLACEHOLDER_MESSAGE,
-        "admin service placeholder"
-    );
+#[tokio::test]
+async fn admin_reload_surfaces_reload_failures_as_status() {
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("browser.json");
+    std::fs::write(&path, r#"{"cookie":"broken"}"#).unwrap();
+
+    let config = ServiceConfig::from_parts("127.0.0.1:50051", "127.0.0.1:50052", path).unwrap();
+    let service = AdminService {
+        state: test_public_service().state,
+        config,
+    };
+
+    let status = service
+        .reload_browser_auth(Request::new(ReloadBrowserAuthRequest {}))
+        .await
+        .unwrap_err();
+
+    assert_eq!(status.code(), Code::FailedPrecondition);
 }

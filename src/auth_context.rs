@@ -21,6 +21,14 @@ impl AuthContext {
             loaded_at,
         })
     }
+
+    pub async fn probe(&self) -> Result<(), ServiceError> {
+        self.client
+            .get_account_info()
+            .await
+            .map(|_| ())
+            .map_err(ServiceError::YtMusic)
+    }
 }
 
 fn new_version_token() -> String {
