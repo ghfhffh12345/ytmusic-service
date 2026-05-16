@@ -2,6 +2,12 @@ use reqwest::StatusCode;
 
 #[derive(Debug, thiserror::Error)]
 pub enum ServiceError {
+    #[error("missing or invalid environment variable {name}: {source}")]
+    EnvVar {
+        name: &'static str,
+        #[source]
+        source: std::env::VarError,
+    },
     #[error("browser auth file does not exist: {0}")]
     BrowserAuthPathMissing(std::path::PathBuf),
     #[error("browser auth path is not a regular file: {0}")]
@@ -24,6 +30,10 @@ pub enum ServiceError {
     CipherWorkerUnavailable,
     #[error("cipher operation failed: {0}")]
     CipherOperation(#[source] yt_cipher::Error),
+    #[error("failed to build server reflection: {0}")]
+    Reflection(#[source] tonic_reflection::server::Error),
+    #[error("transport failure: {0}")]
+    Transport(#[source] tonic::transport::Error),
 }
 
 pub fn map_invalid_argument(message: impl Into<String>) -> tonic::Status {
@@ -32,6 +42,7 @@ pub fn map_invalid_argument(message: impl Into<String>) -> tonic::Status {
 
 pub fn map_service_error(error: &ServiceError) -> tonic::Status {
     match error {
+        ServiceError::EnvVar { source, .. } => tonic::Status::failed_precondition(source.to_string()),
         ServiceError::BrowserAuthPathMissing(path) => tonic::Status::failed_precondition(format!(
             "browser auth file missing: {}",
             path.display()
@@ -53,6 +64,8 @@ pub fn map_service_error(error: &ServiceError) -> tonic::Status {
         ServiceError::Cipher(source) => map_cipher_error(source),
         ServiceError::CipherWorkerUnavailable => tonic::Status::unavailable(error.to_string()),
         ServiceError::CipherOperation(source) => map_cipher_error(source),
+        ServiceError::Reflection(source) => tonic::Status::internal(source.to_string()),
+        ServiceError::Transport(source) => tonic::Status::unavailable(source.to_string()),
     }
 }
 
