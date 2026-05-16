@@ -31,27 +31,31 @@ impl SharedCipher {
         let (command_tx, mut command_rx) = mpsc::channel(8);
         let (ready_tx, ready_rx) = oneshot::channel();
 
-        std::thread::spawn(move || {
-            let runtime = match Builder::new_current_thread().enable_all().build() {
-                Ok(runtime) => runtime,
-                Err(error) => {
-                    let _ = ready_tx.send(Err(ServiceError::CipherWorkerRuntime(error)));
-                    return;
-                }
-            };
+        map_thread_spawn_result(
+            std::thread::Builder::new()
+                .name("ytmusic-cipher-worker".to_owned())
+                .spawn(move || {
+                    let runtime = match Builder::new_current_thread().enable_all().build() {
+                        Ok(runtime) => runtime,
+                        Err(error) => {
+                            let _ = ready_tx.send(Err(ServiceError::CipherWorkerRuntime(error)));
+                            return;
+                        }
+                    };
 
-            runtime.block_on(async move {
-                match yt_cipher::YtCipher::create().await {
-                    Ok(cipher) => {
-                        let _ = ready_tx.send(Ok(()));
-                        run_cipher_loop(cipher, &mut command_rx).await;
-                    }
-                    Err(error) => {
-                        let _ = ready_tx.send(Err(ServiceError::CipherWorkerInit(error)));
-                    }
-                }
-            });
-        });
+                    runtime.block_on(async move {
+                        match yt_cipher::YtCipher::create().await {
+                            Ok(cipher) => {
+                                let _ = ready_tx.send(Ok(()));
+                                run_cipher_loop(cipher, &mut command_rx).await;
+                            }
+                            Err(error) => {
+                                let _ = ready_tx.send(Err(ServiceError::CipherWorkerInit(error)));
+                            }
+                        }
+                    });
+                }),
+        )?;
 
         ready_rx
             .await
@@ -97,6 +101,14 @@ impl SharedCipher {
             .map_err(|_| ServiceError::CipherWorkerUnavailable)?
             .map_err(ServiceError::CipherOperation)
     }
+}
+
+fn map_thread_spawn_result(
+    spawn_result: std::io::Result<std::thread::JoinHandle<()>>,
+) -> Result<(), ServiceError> {
+    spawn_result
+        .map(|_| ())
+        .map_err(ServiceError::CipherWorkerThreadSpawn)
 }
 
 enum CipherCommand {
@@ -147,6 +159,15 @@ mod tests {
     #[test]
     fn shared_cipher_is_send_and_sync() {
         assert_send_sync::<SharedCipher>();
+    }
+
+    #[test]
+    fn thread_spawn_failure_maps_to_service_error() {
+        let spawn_result = Err(std::io::Error::other("thread spawn failed"));
+
+        let error = super::map_thread_spawn_result(spawn_result).unwrap_err();
+
+        assert!(matches!(error, ServiceError::CipherWorkerThreadSpawn(_)));
     }
 
     #[tokio::test]
