@@ -15,6 +15,12 @@ fn write_minimal_valid_browser_auth(path: &std::path::Path) {
     .unwrap();
 }
 
+fn is_lower_hex_token(value: &str) -> bool {
+    value
+        .chars()
+        .all(|ch| ch.is_ascii_digit() || ('a'..='f').contains(&ch))
+}
+
 #[tokio::test]
 async fn startup_fails_when_browser_json_is_missing() {
     let dir = TempDir::new().unwrap();
@@ -146,8 +152,8 @@ async fn startup_assigns_unique_auth_context_versions_per_successful_load() {
     assert_ne!(first.version.as_ref(), second.version.as_ref());
     assert_eq!(first.version.len(), 32);
     assert_eq!(second.version.len(), 32);
-    assert!(first.version.chars().all(|ch| ch.is_ascii_hexdigit()));
-    assert!(second.version.chars().all(|ch| ch.is_ascii_hexdigit()));
+    assert!(is_lower_hex_token(first.version.as_ref()));
+    assert!(is_lower_hex_token(second.version.as_ref()));
     assert!(!first.version.contains(&path_display));
     assert!(!second.version.contains(&path_display));
 }
