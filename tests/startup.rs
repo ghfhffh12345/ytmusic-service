@@ -92,3 +92,21 @@ async fn startup_accepts_existing_browser_json_path() {
     assert_eq!(config.admin_addr().to_string(), "127.0.0.1:50052");
     assert_eq!(config.browser_auth_path(), path.as_path());
 }
+
+#[tokio::test]
+async fn startup_requires_valid_browser_auth_json() {
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("browser.json");
+    std::fs::write(&path, r#"{"cookie":"missing required auth headers"}"#).unwrap();
+
+    let config = ytmusic_service::config::ServiceConfig::from_parts(
+        "127.0.0.1:50051",
+        "127.0.0.1:50052",
+        path,
+    )
+    .unwrap();
+
+    let result = ytmusic_service::auth_context::AuthContext::from_browser_auth_file(&config).await;
+
+    assert!(result.is_err());
+}

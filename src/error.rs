@@ -6,4 +6,6 @@ pub enum ServiceError {
     BrowserAuthPathNotFile(std::path::PathBuf),
     #[error("invalid socket address: {0}")]
     InvalidSocketAddress(#[from] std::net::AddrParseError),
+    #[error("failed to load browser auth: {0}")]
+    BrowserAuthLoad(#[source] ytmusicapi::Error),
 }
