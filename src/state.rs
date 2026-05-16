@@ -5,6 +5,7 @@ use tokio::runtime::Builder;
 use tokio::sync::{mpsc, oneshot};
 
 use crate::auth_context::AuthContext;
+use crate::error::ServiceError;
 
 pub struct AppState {
     pub auth: ArcSwap<AuthContext>,
@@ -12,7 +13,7 @@ pub struct AppState {
 }
 
 impl AppState {
-    pub async fn new(auth: AuthContext) -> Result<Self, yt_cipher::Error> {
+    pub async fn new(auth: AuthContext) -> Result<Self, ServiceError> {
         Ok(Self {
             auth: ArcSwap::from_pointee(auth),
             cipher: Arc::new(SharedCipher::new().await?),
@@ -26,15 +27,18 @@ pub struct SharedCipher {
 }
 
 impl SharedCipher {
-    async fn new() -> Result<Self, yt_cipher::Error> {
+    async fn new() -> Result<Self, ServiceError> {
         let (command_tx, mut command_rx) = mpsc::channel(8);
         let (ready_tx, ready_rx) = oneshot::channel();
 
         std::thread::spawn(move || {
-            let runtime = Builder::new_current_thread()
-                .enable_all()
-                .build()
-                .expect("cipher runtime build failed");
+            let runtime = match Builder::new_current_thread().enable_all().build() {
+                Ok(runtime) => runtime,
+                Err(error) => {
+                    let _ = ready_tx.send(Err(ServiceError::CipherWorkerRuntime(error)));
+                    return;
+                }
+            };
 
             runtime.block_on(async move {
                 match yt_cipher::YtCipher::create().await {
@@ -43,7 +47,7 @@ impl SharedCipher {
                         run_cipher_loop(cipher, &mut command_rx).await;
                     }
                     Err(error) => {
-                        let _ = ready_tx.send(Err(error));
+                        let _ = ready_tx.send(Err(ServiceError::CipherWorkerInit(error)));
                     }
                 }
             });
@@ -51,30 +55,35 @@ impl SharedCipher {
 
         ready_rx
             .await
-            .expect("cipher worker thread stopped before initialization")?;
+            .map_err(|_| ServiceError::CipherWorkerUnavailable)??;
 
         Ok(Self { command_tx })
     }
 
-    pub async fn signature_timestamp(&self) -> u32 {
+    pub async fn signature_timestamp(&self) -> Result<u32, ServiceError> {
         let (reply_tx, reply_rx) = oneshot::channel();
         self.command_tx
             .send(CipherCommand::SignatureTimestamp { reply_tx })
             .await
-            .expect("cipher worker thread stopped");
-        reply_rx.await.expect("cipher worker thread stopped")
+            .map_err(|_| ServiceError::CipherWorkerUnavailable)?;
+        reply_rx
+            .await
+            .map_err(|_| ServiceError::CipherWorkerUnavailable)
     }
 
-    pub async fn refresh(&self) -> Result<(), yt_cipher::Error> {
+    pub async fn refresh(&self) -> Result<(), ServiceError> {
         let (reply_tx, reply_rx) = oneshot::channel();
         self.command_tx
             .send(CipherCommand::Refresh { reply_tx })
             .await
-            .expect("cipher worker thread stopped");
-        reply_rx.await.expect("cipher worker thread stopped")
+            .map_err(|_| ServiceError::CipherWorkerUnavailable)?;
+        reply_rx
+            .await
+            .map_err(|_| ServiceError::CipherWorkerUnavailable)?
+            .map_err(ServiceError::CipherOperation)
     }
 
-    pub async fn decipher(&self, raw: &str) -> Result<String, yt_cipher::Error> {
+    pub async fn decipher(&self, raw: &str) -> Result<String, ServiceError> {
         let (reply_tx, reply_rx) = oneshot::channel();
         self.command_tx
             .send(CipherCommand::Decipher {
@@ -82,8 +91,11 @@ impl SharedCipher {
                 reply_tx,
             })
             .await
-            .expect("cipher worker thread stopped");
-        reply_rx.await.expect("cipher worker thread stopped")
+            .map_err(|_| ServiceError::CipherWorkerUnavailable)?;
+        reply_rx
+            .await
+            .map_err(|_| ServiceError::CipherWorkerUnavailable)?
+            .map_err(ServiceError::CipherOperation)
     }
 }
 
@@ -122,6 +134,8 @@ async fn run_cipher_loop(
 #[cfg(test)]
 mod tests {
     use super::{AppState, SharedCipher};
+    use crate::error::ServiceError;
+    use tokio::sync::mpsc;
 
     fn assert_send_sync<T: Send + Sync>() {}
 
@@ -133,5 +147,17 @@ mod tests {
     #[test]
     fn shared_cipher_is_send_and_sync() {
         assert_send_sync::<SharedCipher>();
+    }
+
+    #[tokio::test]
+    async fn shared_cipher_returns_service_error_when_worker_channel_is_closed() {
+        let (command_tx, command_rx) = mpsc::channel(1);
+        drop(command_rx);
+
+        let cipher = SharedCipher { command_tx };
+
+        let error = cipher.signature_timestamp().await.unwrap_err();
+
+        assert!(matches!(error, ServiceError::CipherWorkerUnavailable));
     }
 }
