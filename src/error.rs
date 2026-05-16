@@ -8,12 +8,16 @@ pub enum ServiceError {
     InvalidSocketAddress(#[from] std::net::AddrParseError),
     #[error("failed to load browser auth: {0}")]
     BrowserAuthLoad(#[source] ytmusicapi::Error),
+    #[error("ytmusicapi request failed: {0}")]
+    YtMusic(#[source] ytmusicapi::Error),
     #[error("failed to spawn cipher worker thread: {0}")]
     CipherWorkerThreadSpawn(#[source] std::io::Error),
     #[error("failed to build cipher worker runtime: {0}")]
     CipherWorkerRuntime(#[source] std::io::Error),
     #[error("failed to initialize cipher worker: {0}")]
     CipherWorkerInit(#[source] yt_cipher::Error),
+    #[error("yt-cipher request failed: {0}")]
+    Cipher(#[source] yt_cipher::Error),
     #[error("cipher worker is unavailable")]
     CipherWorkerUnavailable,
     #[error("cipher operation failed: {0}")]
