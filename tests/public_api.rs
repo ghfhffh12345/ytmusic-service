@@ -3,7 +3,8 @@ use std::{sync::Arc, time::SystemTime};
 use tonic::{Code, Request};
 use ytmusic_service::{
     auth_context::AuthContext,
-    proto::ytmusic::v1::{SearchRequest, yt_music_public_server::YtMusicPublic},
+    error::{ServiceError, map_service_error},
+    proto::ytmusic::v1::{Empty, SearchRequest, yt_music_public_server::YtMusicPublic},
     servers::public::PublicService,
     state::{AppState, SharedCipher},
 };
@@ -16,9 +17,9 @@ async fn public_search_rejects_empty_query() {
         loaded_at: SystemTime::UNIX_EPOCH,
     };
     let service = PublicService {
-        state: Arc::new(AppState::from_parts(
+        state: Arc::new(AppState::from_parts_for_tests(
             auth,
-            Arc::new(SharedCipher::unavailable()),
+            Arc::new(SharedCipher::unavailable_for_tests()),
         )),
     };
 
@@ -32,6 +33,39 @@ async fn public_search_rejects_empty_query() {
         .unwrap_err();
 
     assert_eq!(status.code(), Code::InvalidArgument);
+}
+
+#[tokio::test]
+async fn public_library_playlists_is_unimplemented() {
+    let auth = AuthContext {
+        client: ytmusicapi::YtMusic::new().expect("test client"),
+        version: Arc::<str>::from("test-version"),
+        loaded_at: SystemTime::UNIX_EPOCH,
+    };
+    let service = PublicService {
+        state: Arc::new(AppState::from_parts_for_tests(
+            auth,
+            Arc::new(SharedCipher::unavailable_for_tests()),
+        )),
+    };
+
+    let status = service
+        .get_library_playlists(Request::new(Empty {}))
+        .await
+        .unwrap_err();
+
+    assert_eq!(status.code(), Code::Unimplemented);
+}
+
+#[test]
+fn map_service_error_preserves_status_categories() {
+    let unavailable = map_service_error(&ServiceError::CipherWorkerUnavailable);
+    assert_eq!(unavailable.code(), Code::Unavailable);
+
+    let invalid_argument = map_service_error(&ServiceError::YtMusic(
+        ytmusicapi::Error::InvalidInput("query must not be blank".to_owned()),
+    ));
+    assert_eq!(invalid_argument.code(), Code::InvalidArgument);
 }
 
 #[test]

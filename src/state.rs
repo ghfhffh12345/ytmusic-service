@@ -20,7 +20,8 @@ impl AppState {
         })
     }
 
-    pub fn from_parts(auth: AuthContext, cipher: Arc<SharedCipher>) -> Self {
+    #[doc(hidden)]
+    pub fn from_parts_for_tests(auth: AuthContext, cipher: Arc<SharedCipher>) -> Self {
         Self {
             auth: ArcSwap::from_pointee(auth),
             cipher,
@@ -71,7 +72,8 @@ impl SharedCipher {
         Ok(Self { command_tx })
     }
 
-    pub fn unavailable() -> Self {
+    #[doc(hidden)]
+    pub fn unavailable_for_tests() -> Self {
         let (command_tx, command_rx) = mpsc::channel(1);
         drop(command_rx);
         Self { command_tx }

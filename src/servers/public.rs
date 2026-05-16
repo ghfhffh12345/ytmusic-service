@@ -346,7 +346,7 @@ fn continuation_token<T>(
 }
 
 fn rpc_not_implemented(name: &'static str) -> Status {
-    Status::failed_precondition(format!("{name} adapter wiring has not been added yet"))
+    Status::unimplemented(format!("{name} adapter wiring has not been added yet"))
 }
 
 mod mapping {
