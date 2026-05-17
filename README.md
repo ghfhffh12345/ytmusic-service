@@ -17,7 +17,7 @@ podman run --rm \
   -e YTMUSIC_SERVICE_PUBLIC_ADDR=0.0.0.0:50051 \
   -e YTMUSIC_SERVICE_ADMIN_ADDR=0.0.0.0:50052 \
   -e YTMUSIC_SERVICE_BROWSER_JSON=/run/secrets/browser.json \
-  -v "$PWD/secrets/browser.json:/run/secrets/browser.json:ro" \
+  -v "$PWD/secrets/browser.json:/run/secrets/browser.json:ro,Z" \
   ghcr.io/ghfhffh12345/ytmusic-service:latest
 ```
 
