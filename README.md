@@ -1,31 +1,79 @@
 # ytmusic-service
 
-## Required environment
+`ytmusic-service` is a Rust gRPC wrapper around upstream `ytmusicapi` and `yt-cipher`, with separate public and admin listeners.
 
-- `YTMUSIC_SERVICE_PUBLIC_ADDR`
-- `YTMUSIC_SERVICE_ADMIN_ADDR`
-- `YTMUSIC_SERVICE_BROWSER_JSON`
+## What the service exposes
 
-## Local run
+- Public gRPC API on `YTMUSIC_SERVICE_PUBLIC_ADDR` for `ytmusic.v1.YtMusicPublic`
+- Separate admin gRPC API on `YTMUSIC_SERVICE_ADMIN_ADDR` for `ytmusic.v1.admin.YtMusicAdmin`
+- Standard gRPC health checks on both listeners
+- gRPC reflection on the admin listener for `grpcurl list` and `grpcurl describe`
+
+Use the admin port for reflection-based discovery, and the public port for actual music RPCs.
+
+## Prerequisites
+
+- Rust toolchain for local runs
+- Docker or Podman for container runs
+- `grpcurl` for health checks and example requests
+- `ytmusicapi` installed so you can generate `browser.json`
+- Firefox signed in to the target YouTube Music account
+
+## Authentication setup with ytmusicapi-cli
+
+`browser.json` is required at startup and contains sensitive authenticated browser headers. Treat it like a secret.
+
+Install the upstream CLI:
 
 ```bash
+pip install ytmusicapi
+```
+
+Firefox is recommended because the upstream `ytmusicapi` browser-auth instructions explicitly describe the Firefox header capture flow.
+
+1. Sign in to `https://music.youtube.com` in Firefox with the account this service should use.
+2. Open Firefox Developer Tools and switch to the Network tab.
+3. Trigger authenticated traffic in YouTube Music so the Network tab captures requests.
+4. Find a successful `POST` request such as `browse`.
+5. Copy the request headers from that request.
+6. Run `ytmusicapi browser`.
+7. Paste the copied headers when prompted.
+
+The command writes `browser.json` in the current directory. Store it outside version control, for example at `./secrets/browser.json`.
+
+## Configuration
+
+| Variable | Purpose | Example |
+| --- | --- | --- |
+| `YTMUSIC_SERVICE_PUBLIC_ADDR` | Bind address for the public gRPC listener serving `ytmusic.v1.YtMusicPublic` and health checks | `127.0.0.1:50051` |
+| `YTMUSIC_SERVICE_ADMIN_ADDR` | Bind address for the admin gRPC listener serving `ytmusic.v1.admin.YtMusicAdmin`, health checks, and reflection | `127.0.0.1:50052` |
+| `YTMUSIC_SERVICE_BROWSER_JSON` | Filesystem path to the `browser.json` credentials file loaded at startup | `/absolute/path/to/browser.json` |
+
+Startup fails if the browser json path is missing, not a file, malformed, or fails the startup auth probe.
+
+## Local execution
+
+```bash
+export YTMUSIC_SERVICE_PUBLIC_ADDR=127.0.0.1:50051
+export YTMUSIC_SERVICE_ADMIN_ADDR=127.0.0.1:50052
+export YTMUSIC_SERVICE_BROWSER_JSON="$PWD/secrets/browser.json"
+
 cargo run
 ```
 
-## Container run
+## Container execution
 
 ```bash
 podman build -t ytmusic-service .
+
 podman run --rm \
   -p 50051:50051 \
   -p 50052:50052 \
   -e YTMUSIC_SERVICE_PUBLIC_ADDR=0.0.0.0:50051 \
   -e YTMUSIC_SERVICE_ADMIN_ADDR=0.0.0.0:50052 \
   -e YTMUSIC_SERVICE_BROWSER_JSON=/run/secrets/browser.json \
-  -v ./browser.json:/run/secrets/browser.json:ro \
+  -v "$PWD/secrets/browser.json:/run/secrets/browser.json:ro" \
   ytmusic-service
 ```
 
-## Admin reload
-
-Replace the mounted `browser.json`, then call `ReloadBrowserAuth` against the admin listener.
+Replacing the mounted file does not activate new credentials until the admin reload RPC is called.
