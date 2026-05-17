@@ -66,7 +66,7 @@ cargo run
 Build the image:
 
 ```bash
-podman build -t ytmusic-service .
+podman build -t ghcr.io/ghfhffh12345/ytmusic-service:latest .
 ```
 
 Run the container:
@@ -79,7 +79,7 @@ podman run --rm \
   -e YTMUSIC_SERVICE_ADMIN_ADDR=0.0.0.0:50052 \
   -e YTMUSIC_SERVICE_BROWSER_JSON=/run/secrets/browser.json \
   -v "$PWD/secrets/browser.json:/run/secrets/browser.json:ro" \
-  ytmusic-service
+  ghcr.io/ghfhffh12345/ytmusic-service:latest
 ```
 
 Replacing the mounted file does not activate new credentials until the admin reload RPC is called.
