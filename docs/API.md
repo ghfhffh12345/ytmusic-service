@@ -18,7 +18,7 @@ The admin listener is also the endpoint used for reflection-backed `grpcurl desc
 
 ### Watch playlist and playback metadata
 
-- `GetWatchPlaylist` resolves the watch playlist for a video and optional playlist playback context.
+- `GetWatchPlaylist` resolves the watch playlist for a `video_id` or `playlist_id`, with optional radio/shuffle playback context.
 - `GetWatchPlaylistContinuation` continues a watch playlist response with a continuation token.
 - `GetSong` returns song metadata for a single video ID.
 - `Decipher` turns a `signature_cipher` value into a playable URL.
