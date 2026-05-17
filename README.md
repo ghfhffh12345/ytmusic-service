@@ -2,6 +2,27 @@
 
 `ytmusic-service` is a Rust gRPC wrapper around upstream `ytmusicapi` and `yt-cipher`, with separate public and admin listeners.
 
+## Quickstart with Podman
+
+If you already have Podman and a valid `browser.json`, this is the fastest way to run the service.
+
+If you still need to create `browser.json`, follow [Authentication setup with ytmusicapi-cli](#authentication-setup-with-ytmusicapi-cli).
+
+Podman will pull `ghcr.io/ghfhffh12345/ytmusic-service:latest` automatically if it is not already present locally.
+
+```bash
+podman run --rm \
+  -p 50051:50051 \
+  -p 50052:50052 \
+  -e YTMUSIC_SERVICE_PUBLIC_ADDR=0.0.0.0:50051 \
+  -e YTMUSIC_SERVICE_ADMIN_ADDR=0.0.0.0:50052 \
+  -e YTMUSIC_SERVICE_BROWSER_JSON=/run/secrets/browser.json \
+  -v "$PWD/secrets/browser.json:/run/secrets/browser.json:ro" \
+  ghcr.io/ghfhffh12345/ytmusic-service:latest
+```
+
+Replacing the mounted file does not activate new credentials until the admin reload RPC is called.
+
 ## What the service exposes
 
 - Public gRPC API on `YTMUSIC_SERVICE_PUBLIC_ADDR` for `ytmusic.v1.YtMusicPublic`
@@ -60,29 +81,6 @@ export YTMUSIC_SERVICE_BROWSER_JSON="$PWD/secrets/browser.json"
 
 cargo run
 ```
-
-## Container execution
-
-Build the image:
-
-```bash
-podman build -t ghcr.io/ghfhffh12345/ytmusic-service:latest .
-```
-
-Run the container:
-
-```bash
-podman run --rm \
-  -p 50051:50051 \
-  -p 50052:50052 \
-  -e YTMUSIC_SERVICE_PUBLIC_ADDR=0.0.0.0:50051 \
-  -e YTMUSIC_SERVICE_ADMIN_ADDR=0.0.0.0:50052 \
-  -e YTMUSIC_SERVICE_BROWSER_JSON=/run/secrets/browser.json \
-  -v "$PWD/secrets/browser.json:/run/secrets/browser.json:ro" \
-  ghcr.io/ghfhffh12345/ytmusic-service:latest
-```
-
-Replacing the mounted file does not activate new credentials until the admin reload RPC is called.
 
 ## Practical grpcurl usage
 
