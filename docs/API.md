@@ -1,6 +1,6 @@
 # ytmusic-service API Reference
 
-The service exposes two gRPC packages: `ytmusic.v1` on the public listener and `ytmusic.v1.admin` on the admin listener.
+The API uses two gRPC package namespaces: `ytmusic.v1` for the public service and `ytmusic.v1.admin` for the admin service.
 
 ## Service names
 
@@ -18,10 +18,10 @@ The admin listener is also the endpoint used for reflection-backed `grpcurl desc
 
 ### Watch playlist and playback metadata
 
-- `GetWatchPlaylist` resolves the watch playlist for a track, video, or playback context.
+- `GetWatchPlaylist` resolves the watch playlist for a video and optional playlist playback context.
 - `GetWatchPlaylistContinuation` continues a watch playlist response with a continuation token.
 - `GetSong` returns song metadata for a single video ID.
-- `Decipher` resolves playback-related values that require deciphering.
+- `Decipher` turns a `signature_cipher` value into a playable URL.
 
 ### Library listing families
 
@@ -43,7 +43,7 @@ Continuation RPCs consume tokens returned by the corresponding listing call.
 
 ## Admin API summary
 
-- `ReloadBrowserAuth` reloads browser-backed authentication state for the service.
+- `ReloadBrowserAuth` reloads `browser.json` from the configured path and swaps the in-memory auth state if validation succeeds.
 
 ## Proto sources
 
