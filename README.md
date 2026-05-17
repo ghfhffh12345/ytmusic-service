@@ -72,9 +72,14 @@ The command writes `browser.json` in the current directory. Store it outside ver
 
 Startup fails if the browser json path is missing, points to something other than a file, contains malformed JSON, contains invalid or otherwise unusable auth data, or fails the startup auth probe.
 
-## Local execution
+## Run locally from source
+
+Use this path if you want to run the service from this repository instead of the published container image.
 
 ```bash
+git clone https://github.com/ghfhffh12345/ytmusic-service.git
+cd ytmusic-service
+
 export YTMUSIC_SERVICE_PUBLIC_ADDR=127.0.0.1:50051
 export YTMUSIC_SERVICE_ADMIN_ADDR=127.0.0.1:50052
 export YTMUSIC_SERVICE_BROWSER_JSON="$PWD/secrets/browser.json"
