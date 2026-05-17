@@ -83,3 +83,71 @@ podman run --rm \
 ```
 
 Replacing the mounted file does not activate new credentials until the admin reload RPC is called.
+
+## Practical grpcurl usage
+
+The admin listener is the endpoint for reflection-based discovery, so use it for `grpcurl list` and `grpcurl describe`.
+
+List reflected services on the admin listener:
+
+```bash
+grpcurl -plaintext 127.0.0.1:50052 list
+```
+
+Describe the public API service from the admin listener:
+
+```bash
+grpcurl -plaintext 127.0.0.1:50052 describe ytmusic.v1.YtMusicPublic
+```
+
+Check gRPC health on either listener:
+
+```bash
+grpcurl -plaintext \
+  -d '{"service":"ytmusic.v1.YtMusicPublic"}' \
+  127.0.0.1:50051 \
+  grpc.health.v1.Health/Check
+```
+
+Send a representative search request to the public listener:
+
+```bash
+grpcurl -plaintext \
+  -d '{"query":"Miles Davis","ignoreSpelling":false}' \
+  127.0.0.1:50051 \
+  ytmusic.v1.YtMusicPublic/Search
+```
+
+Reload browser credentials through the admin listener:
+
+```bash
+grpcurl -plaintext \
+  -d '{}' \
+  127.0.0.1:50052 \
+  ytmusic.v1.admin.YtMusicAdmin/ReloadBrowserAuth
+```
+
+## Credential rotation and reload workflow
+
+1. Generate or replace `browser.json` with the new authenticated browser headers.
+2. Confirm the service process can read the configured `YTMUSIC_SERVICE_BROWSER_JSON` path and that the path still resolves to a regular file.
+3. Call the reload RPC on the admin listener.
+4. Wait for the reload RPC to succeed before treating the new credentials as active.
+
+The service keeps the prior in-memory auth context until reload succeeds, and replacing the file alone is not enough to activate new credentials.
+
+## Troubleshooting
+
+- Missing `browser.json`: startup fails if `YTMUSIC_SERVICE_BROWSER_JSON` points to a path that does not exist.
+- `browser.json` path is a directory: startup fails if the configured path is not a regular file.
+- Malformed `browser.json`: malformed browser.json content fails auth loading before the service can use it.
+- Startup probe fails: syntactically valid auth can still be rejected during the startup validation probe, and the service will not finish starting.
+- address already in use: if either listener cannot bind its configured socket address, free the port or choose different values for `YTMUSIC_SERVICE_PUBLIC_ADDR` and `YTMUSIC_SERVICE_ADMIN_ADDR`.
+- `grpcurl list` fails on the public port: reflection is only registered there on the admin port, so use `127.0.0.1:50052` for discovery commands.
+- Credential file replaced without reload: the running process keeps using the previous in-memory auth context until `ReloadBrowserAuth` succeeds.
+
+## Further reference
+
+- [docs/API.md](docs/API.md)
+- [proto/ytmusic/v1/public.proto](proto/ytmusic/v1/public.proto)
+- [proto/ytmusic/v1/admin.proto](proto/ytmusic/v1/admin.proto)
