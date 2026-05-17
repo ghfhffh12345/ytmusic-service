@@ -29,7 +29,7 @@ Install the upstream CLI:
 pip install ytmusicapi
 ```
 
-The service only requires a valid `browser.json`. Firefox is the recommended flow here because the upstream `ytmusicapi` browser-auth instructions explicitly describe the Firefox header capture flow, and upstream also documents other browser flows.
+The service only requires a valid `browser.json`. Firefox is the recommended flow here because the upstream `ytmusicapi` browser-auth instructions explicitly describe the Firefox header capture flow.
 
 1. Sign in to `https://music.youtube.com` in Firefox with the account this service should use.
 2. Open Firefox Developer Tools and switch to the Network tab.
