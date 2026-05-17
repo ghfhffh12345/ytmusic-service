@@ -2,6 +2,8 @@
 
 For setup, authentication bootstrap, runtime examples, and troubleshooting, start with [README.md](../README.md).
 
+`ytmusic-service` is a gRPC service layer that provides various YouTube Music features over the `ytmusic.v1` and `ytmusic.v1.admin` APIs.
+
 The API uses two gRPC package namespaces: `ytmusic.v1` for the public service and `ytmusic.v1.admin` for the admin service.
 
 ## Service names
