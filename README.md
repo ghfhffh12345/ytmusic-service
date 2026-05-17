@@ -60,7 +60,7 @@ The service only requires a valid `browser.json`. Firefox is the recommended flo
 6. Run `ytmusicapi browser`.
 7. Paste the copied headers when prompted.
 
-The command writes `browser.json` in the current directory. Store it outside version control, for example at `./secrets/browser.json`.
+The command writes `browser.json` in the current directory. Keep it out of version control. The source-based local run path below assumes it remains at `./browser.json`; if you move it elsewhere, update `YTMUSIC_SERVICE_BROWSER_JSON` to match.
 
 ## Configuration
 
@@ -82,7 +82,7 @@ cd ytmusic-service
 
 export YTMUSIC_SERVICE_PUBLIC_ADDR=127.0.0.1:50051
 export YTMUSIC_SERVICE_ADMIN_ADDR=127.0.0.1:50052
-export YTMUSIC_SERVICE_BROWSER_JSON="$PWD/secrets/browser.json"
+export YTMUSIC_SERVICE_BROWSER_JSON="$PWD/browser.json"
 
 cargo run
 ```
