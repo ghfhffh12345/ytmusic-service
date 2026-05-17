@@ -17,7 +17,7 @@ Use the admin port for reflection-based discovery, and the public port for actua
 - Docker or Podman for container runs
 - `grpcurl` for health checks and example requests
 - `ytmusicapi` installed so you can generate `browser.json`
-- Firefox signed in to the target YouTube Music account
+- A valid `browser.json` for the target YouTube Music account
 
 ## Authentication setup with ytmusicapi-cli
 
@@ -29,7 +29,7 @@ Install the upstream CLI:
 pip install ytmusicapi
 ```
 
-Firefox is recommended because the upstream `ytmusicapi` browser-auth instructions explicitly describe the Firefox header capture flow.
+The service only requires a valid `browser.json`. Firefox is the recommended flow here because the upstream `ytmusicapi` browser-auth instructions explicitly describe the Firefox header capture flow, and upstream also documents other browser flows.
 
 1. Sign in to `https://music.youtube.com` in Firefox with the account this service should use.
 2. Open Firefox Developer Tools and switch to the Network tab.
@@ -49,7 +49,7 @@ The command writes `browser.json` in the current directory. Store it outside ver
 | `YTMUSIC_SERVICE_ADMIN_ADDR` | Bind address for the admin gRPC listener serving `ytmusic.v1.admin.YtMusicAdmin`, health checks, and reflection | `127.0.0.1:50052` |
 | `YTMUSIC_SERVICE_BROWSER_JSON` | Filesystem path to the `browser.json` credentials file loaded at startup | `/absolute/path/to/browser.json` |
 
-Startup fails if the browser json path is missing, not a file, malformed, or fails the startup auth probe.
+Startup fails if the browser json path is missing, points to something other than a file, contains malformed JSON, contains invalid or otherwise unusable auth data, or fails the startup auth probe.
 
 ## Local execution
 
@@ -63,9 +63,15 @@ cargo run
 
 ## Container execution
 
+Build the image:
+
 ```bash
 podman build -t ytmusic-service .
+```
 
+Run the container:
+
+```bash
 podman run --rm \
   -p 50051:50051 \
   -p 50052:50052 \
