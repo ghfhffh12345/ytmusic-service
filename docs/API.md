@@ -1,5 +1,7 @@
 # ytmusic-service API Reference
 
+For setup, authentication bootstrap, runtime examples, and troubleshooting, start with [README.md](../README.md).
+
 The API uses two gRPC package namespaces: `ytmusic.v1` for the public service and `ytmusic.v1.admin` for the admin service.
 
 ## Service names
