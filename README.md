@@ -100,7 +100,7 @@ Describe the public API service from the admin listener:
 grpcurl -plaintext 127.0.0.1:50052 describe ytmusic.v1.YtMusicPublic
 ```
 
-Check gRPC health on either listener:
+Check the public service health on the public listener:
 
 ```bash
 grpcurl -plaintext \
@@ -140,8 +140,8 @@ The service keeps the prior in-memory auth context until reload succeeds, and re
 
 - Missing `browser.json`: startup fails if `YTMUSIC_SERVICE_BROWSER_JSON` points to a path that does not exist.
 - `browser.json` path is a directory: startup fails if the configured path is not a regular file.
-- Malformed `browser.json`: malformed browser.json content fails auth loading before the service can use it.
-- Startup probe fails: syntactically valid auth can still be rejected during the startup validation probe, and the service will not finish starting.
+- Malformed `browser.json`: regenerate `browser.json` with `ytmusicapi browser`, replace the configured file, and retry startup or call reload again.
+- Startup probe fails: if startup validation rejects the auth, regenerate `browser.json` with `ytmusicapi browser`, replace the configured file, and retry startup or call reload again.
 - address already in use: if either listener cannot bind its configured socket address, free the port or choose different values for `YTMUSIC_SERVICE_PUBLIC_ADDR` and `YTMUSIC_SERVICE_ADMIN_ADDR`.
 - `grpcurl list` fails on the public port: reflection is only registered there on the admin port, so use `127.0.0.1:50052` for discovery commands.
 - Credential file replaced without reload: the running process keeps using the previous in-memory auth context until `ReloadBrowserAuth` succeeds.
