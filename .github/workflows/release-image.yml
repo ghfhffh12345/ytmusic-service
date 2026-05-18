@@ -101,7 +101,7 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           context: .
           containerfiles: |
-            ./Dockerfile
+            ./Containerfile
           platforms: linux/amd64,linux/arm64
           oci: true
           labels: ${{ steps.meta.outputs.oci_labels }}
