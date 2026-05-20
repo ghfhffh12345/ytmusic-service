@@ -51,5 +51,7 @@ Continuation RPCs consume tokens returned by the corresponding listing call.
 
 ## Proto sources
 
-- [`public.proto`](../proto/ytmusic/v1/public.proto)
-- [`admin.proto`](../proto/ytmusic/v1/admin.proto)
+Rust callers can depend on `ytmusic-service-proto` for the generated gRPC types and client/server modules.
+
+- [`public.proto`](../crates/ytmusic-service-proto/proto/ytmusic/v1/public.proto)
+- [`admin.proto`](../crates/ytmusic-service-proto/proto/ytmusic/v1/admin.proto)

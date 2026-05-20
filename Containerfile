@@ -1,9 +1,8 @@
 FROM docker.io/library/rust:1.88-bookworm AS builder
 WORKDIR /app
-COPY Cargo.toml Cargo.lock build.rs ./
-COPY proto ./proto
-COPY src ./src
-RUN cargo build --release
+COPY Cargo.toml Cargo.lock ./
+COPY crates ./crates
+RUN cargo build --release -p ytmusic-service
 
 FROM gcr.io/distroless/cc-debian12
 WORKDIR /app

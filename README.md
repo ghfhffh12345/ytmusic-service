@@ -60,10 +60,14 @@ export YTMUSIC_SERVICE_PUBLIC_ADDR=127.0.0.1:50051
 export YTMUSIC_SERVICE_ADMIN_ADDR=127.0.0.1:50052
 export YTMUSIC_SERVICE_BROWSER_JSON="$PWD/browser.json"
 
-cargo run
+cargo run -p ytmusic-service
 ```
 
 The source-based example assumes `browser.json` is available at `./browser.json`. If you store it elsewhere, update `YTMUSIC_SERVICE_BROWSER_JSON` to match.
+
+## Rust consumers
+
+Rust callers who want the generated gRPC contract directly should depend on `ytmusic-service-proto`.
 
 ## Verify and use the service
 
@@ -125,6 +129,6 @@ grpcurl -plaintext \
 ## Further reference
 
 - [docs/API.md](docs/API.md)
-- [proto/ytmusic/v1/public.proto](proto/ytmusic/v1/public.proto)
-- [proto/ytmusic/v1/admin.proto](proto/ytmusic/v1/admin.proto)
+- [crates/ytmusic-service-proto/proto/ytmusic/v1/public.proto](crates/ytmusic-service-proto/proto/ytmusic/v1/public.proto)
+- [crates/ytmusic-service-proto/proto/ytmusic/v1/admin.proto](crates/ytmusic-service-proto/proto/ytmusic/v1/admin.proto)
 - [ghfhffh12345/ytmusicapi](https://github.com/ghfhffh12345/ytmusicapi)
