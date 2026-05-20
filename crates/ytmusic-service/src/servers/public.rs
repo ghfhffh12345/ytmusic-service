@@ -4,9 +4,9 @@ use tonic::{Request, Response, Status};
 
 use crate::{
     adapters::{cipher::CipherAdapter, ytmusic::YtMusicAdapter},
-    proto::ytmusic::v1::{self as pb, yt_music_public_server::YtMusicPublic},
     state::AppState,
 };
+use ytmusic_service_proto::ytmusic::v1::{self as pb, yt_music_public_server::YtMusicPublic};
 
 pub struct PublicService {
     pub state: Arc<AppState>,
@@ -473,7 +473,7 @@ fn continuation_token<T>(
 }
 
 mod mapping {
-    use crate::proto::ytmusic::v1::{self as pb, search_result_item};
+    use ytmusic_service_proto::ytmusic::v1::{self as pb, search_result_item};
 
     pub fn search_page_to_proto(
         page: ytmusicapi::Page<ytmusicapi::SearchResult, ytmusicapi::SearchContinuationToken>,
@@ -1260,7 +1260,7 @@ mod mapping {
 #[cfg(test)]
 mod tests {
     use super::mapping;
-    use crate::proto::ytmusic::v1 as pb;
+    use ytmusic_service_proto::ytmusic::v1 as pb;
 
     fn artist_ref(id: &str, name: &str) -> ytmusicapi::ArtistRef {
         ytmusicapi::ArtistRef {

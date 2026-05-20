@@ -2,9 +2,17 @@ pub mod adapters;
 pub mod auth_context;
 pub mod config;
 pub mod error;
-pub mod proto;
 pub mod servers;
 pub mod state;
+
+use ytmusic_service_proto::ytmusic::v1::{
+    PUBLIC_FILE_DESCRIPTOR_SET,
+    yt_music_public_server::YtMusicPublicServer,
+};
+use ytmusic_service_proto::ytmusic::v1::admin::{
+    ADMIN_FILE_DESCRIPTOR_SET,
+    yt_music_admin_server::YtMusicAdminServer,
+};
 
 #[doc(hidden)]
 pub type StartupAuthFuture<'a> = std::pin::Pin<
@@ -32,20 +40,16 @@ pub async fn run(config: config::ServiceConfig) -> Result<(), error::ServiceErro
 
     let (mut public_reporter, public_health) = tonic_health::server::health_reporter();
     public_reporter
-        .set_serving::<proto::ytmusic::v1::yt_music_public_server::YtMusicPublicServer<
-            servers::public::PublicService,
-        >>()
+        .set_serving::<YtMusicPublicServer<servers::public::PublicService>>()
         .await;
     let (mut admin_reporter, admin_health) = tonic_health::server::health_reporter();
     admin_reporter
-        .set_serving::<proto::ytmusic::v1::admin::yt_music_admin_server::YtMusicAdminServer<
-            servers::admin::AdminService,
-        >>()
+        .set_serving::<YtMusicAdminServer<servers::admin::AdminService>>()
         .await;
 
     let reflection = tonic_reflection::server::Builder::configure()
-        .register_encoded_file_descriptor_set(proto::ytmusic::v1::PUBLIC_FILE_DESCRIPTOR_SET)
-        .register_encoded_file_descriptor_set(proto::ytmusic::v1::admin::ADMIN_FILE_DESCRIPTOR_SET)
+        .register_encoded_file_descriptor_set(PUBLIC_FILE_DESCRIPTOR_SET)
+        .register_encoded_file_descriptor_set(ADMIN_FILE_DESCRIPTOR_SET)
         .build_v1()
         .map_err(error::ServiceError::Reflection)?;
 
@@ -54,9 +58,7 @@ pub async fn run(config: config::ServiceConfig) -> Result<(), error::ServiceErro
             .map_err(error::ServiceError::Incoming)?;
     let public = tonic::transport::Server::builder()
         .add_service(public_health)
-        .add_service(
-            proto::ytmusic::v1::yt_music_public_server::YtMusicPublicServer::new(public_service),
-        )
+        .add_service(YtMusicPublicServer::new(public_service))
         .serve_with_incoming(public_incoming);
 
     let admin_incoming =
@@ -65,11 +67,7 @@ pub async fn run(config: config::ServiceConfig) -> Result<(), error::ServiceErro
     let admin = tonic::transport::Server::builder()
         .add_service(admin_health)
         .add_service(reflection)
-        .add_service(
-            proto::ytmusic::v1::admin::yt_music_admin_server::YtMusicAdminServer::new(
-                admin_service,
-            ),
-        )
+        .add_service(YtMusicAdminServer::new(admin_service))
         .serve_with_incoming(admin_incoming);
 
     tokio::try_join!(public, admin).map_err(error::ServiceError::Transport)?;

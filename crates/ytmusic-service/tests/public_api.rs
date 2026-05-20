@@ -6,13 +6,19 @@ use ytmusic_service::{
     auth_context::AuthContext,
     config::ServiceConfig,
     error::{ServiceError, map_service_error},
-    proto::ytmusic::v1::admin::{ReloadBrowserAuthRequest, yt_music_admin_server::YtMusicAdmin},
-    proto::ytmusic::v1::{
-        AccountInfoResponse, Empty, GetLibraryPlaylistsContinuationRequest, SearchRequest,
-        yt_music_public_server::YtMusicPublic,
-    },
     servers::{admin::AdminService, public::PublicService},
     state::{AppState, SharedCipher},
+};
+use ytmusic_service_proto::ytmusic::v1::admin::{
+    ReloadBrowserAuthRequest,
+    yt_music_admin_server::YtMusicAdmin,
+};
+use ytmusic_service_proto::ytmusic::v1::{
+    AccountInfoResponse,
+    Empty,
+    GetLibraryPlaylistsContinuationRequest,
+    SearchRequest,
+    yt_music_public_server::YtMusicPublic,
 };
 
 fn test_public_service() -> PublicService {

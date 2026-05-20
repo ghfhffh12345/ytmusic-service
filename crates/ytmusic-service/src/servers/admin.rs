@@ -2,12 +2,11 @@ use std::sync::Arc;
 
 use tonic::{Request, Response, Status};
 
-use crate::{
-    config::ServiceConfig,
-    proto::ytmusic::v1::admin::{
-        ReloadBrowserAuthRequest, ReloadBrowserAuthResponse, yt_music_admin_server::YtMusicAdmin,
-    },
-    state::AppState,
+use crate::{config::ServiceConfig, state::AppState};
+use ytmusic_service_proto::ytmusic::v1::admin::{
+    ReloadBrowserAuthRequest,
+    ReloadBrowserAuthResponse,
+    yt_music_admin_server::YtMusicAdmin,
 };
 
 pub struct AdminService {
