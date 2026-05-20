@@ -2734,8 +2734,6 @@ name = "ytmusic-service"
 version = "0.1.0"
 dependencies = [
  "arc-swap",
- "prost",
- "protoc-bin-vendored",
  "reqwest 0.12.28",
  "serde",
  "serde_json",
@@ -2743,14 +2741,24 @@ dependencies = [
  "thiserror",
  "tokio",
  "tonic",
- "tonic-build",
  "tonic-health",
  "tonic-reflection",
  "tracing",
  "tracing-subscriber",
  "uuid",
  "yt-cipher",
+ "ytmusic-service-proto",
  "ytmusicapi",
+]
+
+[[package]]
+name = "ytmusic-service-proto"
+version = "0.1.0"
+dependencies = [
+ "prost",
+ "protoc-bin-vendored",
+ "tonic",
+ "tonic-build",
 ]
 
 [[package]]
