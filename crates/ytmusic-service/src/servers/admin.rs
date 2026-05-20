@@ -4,9 +4,7 @@ use tonic::{Request, Response, Status};
 
 use crate::{config::ServiceConfig, state::AppState};
 use ytmusic_service_proto::ytmusic::v1::admin::{
-    ReloadBrowserAuthRequest,
-    ReloadBrowserAuthResponse,
-    yt_music_admin_server::YtMusicAdmin,
+    ReloadBrowserAuthRequest, ReloadBrowserAuthResponse, yt_music_admin_server::YtMusicAdmin,
 };
 
 pub struct AdminService {

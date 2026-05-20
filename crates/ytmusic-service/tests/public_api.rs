@@ -10,14 +10,10 @@ use ytmusic_service::{
     state::{AppState, SharedCipher},
 };
 use ytmusic_service_proto::ytmusic::v1::admin::{
-    ReloadBrowserAuthRequest,
-    yt_music_admin_server::YtMusicAdmin,
+    ReloadBrowserAuthRequest, yt_music_admin_server::YtMusicAdmin,
 };
 use ytmusic_service_proto::ytmusic::v1::{
-    AccountInfoResponse,
-    Empty,
-    GetLibraryPlaylistsContinuationRequest,
-    SearchRequest,
+    AccountInfoResponse, Empty, GetLibraryPlaylistsContinuationRequest, SearchRequest,
     yt_music_public_server::YtMusicPublic,
 };
 

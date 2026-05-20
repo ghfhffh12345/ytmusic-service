@@ -5,13 +5,11 @@ pub mod error;
 pub mod servers;
 pub mod state;
 
-use ytmusic_service_proto::ytmusic::v1::{
-    PUBLIC_FILE_DESCRIPTOR_SET,
-    yt_music_public_server::YtMusicPublicServer,
-};
 use ytmusic_service_proto::ytmusic::v1::admin::{
-    ADMIN_FILE_DESCRIPTOR_SET,
-    yt_music_admin_server::YtMusicAdminServer,
+    ADMIN_FILE_DESCRIPTOR_SET, yt_music_admin_server::YtMusicAdminServer,
+};
+use ytmusic_service_proto::ytmusic::v1::{
+    PUBLIC_FILE_DESCRIPTOR_SET, yt_music_public_server::YtMusicPublicServer,
 };
 
 #[doc(hidden)]
