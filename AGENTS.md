@@ -1,4 +1,5 @@
 Use Serena for project context and Context7 for library/docs context.
+Never commit `docs/superpowers/specs/*.md` or `docs/superpowers/plans/*.md`; treat them as local working documents only.
 
 Repository overview:
 - `ytmusic-service` is a Rust 2024 Cargo workspace for a gRPC YouTube Music service and its public protobuf contract.
