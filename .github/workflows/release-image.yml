@@ -170,16 +170,19 @@ jobs:
             echo "EOF"
           } >> "${GITHUB_OUTPUT}"
 
-      - name: Validate publish secrets
+      - name: Validate act publish secrets
         if: ${{ inputs.mode == 'publish' }}
         shell: bash
         env:
+          ACT_ENV: ${{ env.ACT }}
           GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
         run: |
           set -euo pipefail
-          test -n "${GHCR_USERNAME}" || { echo "GHCR_USERNAME is required for publish mode" >&2; exit 1; }
-          test -n "${GHCR_TOKEN}" || { echo "GHCR_TOKEN is required for publish mode" >&2; exit 1; }
+          if [[ "${ACT_ENV:-}" == "true" ]]; then
+            test -n "${GHCR_USERNAME}" || { echo "GHCR_USERNAME is required for act publish mode" >&2; exit 1; }
+            test -n "${GHCR_TOKEN}" || { echo "GHCR_TOKEN is required for act publish mode" >&2; exit 1; }
+          fi
 
       - name: Set up QEMU
         if: ${{ steps.meta.outputs.use_qemu == 'true' }}
@@ -193,8 +196,8 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
-          username: ${{ secrets.GHCR_USERNAME }}
-          password: ${{ secrets.GHCR_TOKEN }}
+          username: ${{ secrets.GHCR_USERNAME != '' && secrets.GHCR_USERNAME || github.actor }}
+          password: ${{ secrets.GHCR_TOKEN != '' && secrets.GHCR_TOKEN || github.token }}
 
       - name: Prepare local OCI archive directory
         if: ${{ inputs.mode == 'local' && inputs.platforms == 'multiarch' }}
