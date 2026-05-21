@@ -2,5 +2,6 @@
 /.worktrees
 /.superpowers
 /docs/superpowers
+/dist
 /target
 browser.json
