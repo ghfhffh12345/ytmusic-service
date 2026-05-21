@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: Choose between a local build and a publish run.
+        description: Choose between an act-driven local build and a publish run.
         required: true
         default: local
         type: choice
@@ -46,6 +46,25 @@ jobs:
         uses: actions/checkout@v5
         with:
           fetch-depth: 0
+
+      - name: Validate workflow inputs
+        shell: bash
+        env:
+          INPUT_MODE: ${{ inputs.mode }}
+          INPUT_PLATFORMS: ${{ inputs.platforms }}
+          ACT_ENV: ${{ env.ACT }}
+        run: |
+          set -euo pipefail
+
+          if [[ "${INPUT_MODE}" == "local" && "${ACT_ENV:-}" != "true" ]]; then
+            echo "local mode is only supported when the workflow is run under act (ACT=true)" >&2
+            exit 1
+          fi
+
+          if [[ "${INPUT_MODE}" == "publish" && "${INPUT_PLATFORMS}" != "multiarch" ]]; then
+            echo "publish mode requires platforms=multiarch" >&2
+            exit 1
+          fi
 
       - name: Derive image metadata
         id: meta
