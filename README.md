@@ -15,7 +15,8 @@ Use the admin port for reflection and admin RPCs. Use the public port for music 
 
 You will need:
 
-- Docker or Podman for container runs, or the Rust toolchain for local runs
+- Docker for container runs and local image builds
+- `act` if you want to run the repository workflow locally
 - `grpcurl` if you want to inspect services or send test requests
 - A valid `browser.json` for the YouTube Music account the service should use
 
@@ -33,19 +34,56 @@ The service loads browser authentication from `YTMUSIC_SERVICE_BROWSER_JSON` at 
 
 Startup fails if the configured `browser.json` path is missing, is not a regular file, contains malformed JSON, contains unusable auth data, or fails the startup auth probe.
 
-## Run with Podman
+## Run with Docker
 
-If you already have Podman and a valid `browser.json`, this is the fastest way to start the service. Podman will pull `ghcr.io/ghfhffh12345/ytmusic-service:latest` automatically if it is not already present locally.
+If you already have Docker and a valid `browser.json`, this is the fastest way to start the service. Docker will pull `ghcr.io/ghfhffh12345/ytmusic-service:latest` automatically if it is not already present locally.
 
 ```bash
-podman run --rm \
+docker run --rm \
   -p 50051:50051 \
   -p 50052:50052 \
   -e YTMUSIC_SERVICE_PUBLIC_ADDR=0.0.0.0:50051 \
   -e YTMUSIC_SERVICE_ADMIN_ADDR=0.0.0.0:50052 \
   -e YTMUSIC_SERVICE_BROWSER_JSON=/run/secrets/browser.json \
-  -v "$PWD/browser.json:/run/secrets/browser.json:ro,Z" \
+  -v "$PWD/browser.json:/run/secrets/browser.json:ro" \
   ghcr.io/ghfhffh12345/ytmusic-service:latest
+```
+
+## Run GitHub Actions locally with act
+
+Use `act` when you want to execute the repository's Docker image workflow locally instead of relying on GitHub-hosted runners.
+
+Fast host-architecture build that loads the image into your local Docker daemon:
+
+```bash
+act workflow_dispatch \
+  -W .github/workflows/release-image.yml \
+  --input mode=local \
+  --input platforms=host \
+  -P ubuntu-22.04=catthehacker/ubuntu:act-22.04
+```
+
+Explicit multi-architecture build that writes an OCI archive to `dist/ytmusic-service-multiarch.tar`:
+
+```bash
+act workflow_dispatch \
+  -W .github/workflows/release-image.yml \
+  --input mode=local \
+  --input platforms=multiarch \
+  -P ubuntu-22.04=catthehacker/ubuntu:act-22.04
+```
+
+Publish to GHCR from your local machine. If `HEAD` is already on an exact Git tag, you can omit `tag_override`:
+
+```bash
+act workflow_dispatch \
+  -W .github/workflows/release-image.yml \
+  --input mode=publish \
+  --input platforms=multiarch \
+  --input tag_override=v0.1.0 \
+  -s GHCR_USERNAME="$GHCR_USERNAME" \
+  -s GHCR_TOKEN="$GHCR_TOKEN" \
+  -P ubuntu-22.04=catthehacker/ubuntu:act-22.04
 ```
 
 ## Run from source

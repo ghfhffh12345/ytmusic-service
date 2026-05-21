@@ -8,7 +8,7 @@ Repository overview:
   - `crates/ytmusic-service-proto`: the public proto crate. It owns the `.proto` sources, `build.rs`, generated tonic/prost types, generated client/server modules, descriptor exports, and a smoke test for those exports.
 - Workspace-level files:
   - `Cargo.toml`: virtual workspace manifest with shared dependency versions.
-  - `Containerfile`: builds the `ytmusic-service` package from the workspace.
+  - `Dockerfile`: builds the `ytmusic-service` package from the workspace.
   - `README.md`: operator/user quickstart and usage notes.
   - `docs/API.md`: API and proto reference.
   - `docs/superpowers/`: design specs and implementation plans from prior agent work.
