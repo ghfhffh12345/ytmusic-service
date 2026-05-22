@@ -205,6 +205,10 @@ jobs:
             echo "org.opencontainers.image.version=${primary_tag}"
             echo "org.opencontainers.image.documentation=https://github.com/${repo}#readme"
             echo "EOF"
+            echo "oci_annotations<<EOF"
+            echo "index:org.opencontainers.image.source=https://github.com/${repo}"
+            echo "index:org.opencontainers.image.description=gRPC service layer for various YouTube Music features"
+            echo "EOF"
           } >> "${GITHUB_OUTPUT}"
 
       - name: Validate act publish secrets
@@ -260,6 +264,7 @@ jobs:
           platforms: ${{ steps.meta.outputs.build_platforms }}
           outputs: type=oci,dest=${{ github.workspace }}/dist/ytmusic-service-multiarch.tar
           tags: ${{ steps.meta.outputs.tags }}
+          annotations: ${{ steps.meta.outputs.oci_annotations }}
           labels: ${{ steps.meta.outputs.oci_labels }}
 
       - name: Export multi-architecture OCI archive for act
@@ -288,6 +293,7 @@ jobs:
           push: true
           platforms: ${{ steps.meta.outputs.build_platforms }}
           tags: ${{ steps.meta.outputs.tags }}
+          annotations: ${{ steps.meta.outputs.oci_annotations }}
           labels: ${{ steps.meta.outputs.oci_labels }}
 
       - name: Summarize image result
