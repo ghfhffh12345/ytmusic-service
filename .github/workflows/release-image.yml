@@ -183,7 +183,6 @@ jobs:
             echo "oci_labels<<EOF"
             echo "org.opencontainers.image.title=ytmusic-service"
             echo "org.opencontainers.image.description=gRPC service layer for various YouTube Music features"
-            echo "org.opencontainers.image.source=https://github.com/${repo}"
             echo "org.opencontainers.image.revision=${GITHUB_SHA}"
             echo "org.opencontainers.image.version=${primary_tag}"
             echo "org.opencontainers.image.documentation=https://github.com/${repo}#readme"
