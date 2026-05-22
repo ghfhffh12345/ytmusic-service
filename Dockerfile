@@ -51,6 +51,7 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
     cp "target/${rust_target}/release/ytmusic-service" /tmp/ytmusic-service
 
 FROM --platform=$TARGETPLATFORM gcr.io/distroless/cc-debian12
+LABEL org.opencontainers.image.source="https://github.com/ghfhffh12345/ytmusic-service"
 WORKDIR /app
 COPY --from=builder /tmp/ytmusic-service /app/ytmusic-service
 USER nonroot:nonroot
