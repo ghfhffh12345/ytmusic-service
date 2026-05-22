@@ -108,14 +108,34 @@ jobs:
             use_qemu="true"
           fi
 
-          short_sha="$(git rev-parse --short=12 HEAD 2>/dev/null || true)"
+          git_workspace="${GITHUB_WORKSPACE:-.}"
+
+          short_sha="$(git -C "${git_workspace}" rev-parse --short=12 HEAD 2>/dev/null || true)"
           if [[ -z "${short_sha}" ]]; then
             short_sha="${GITHUB_SHA:0:12}"
           fi
 
+          head_commit="$(git -C "${git_workspace}" rev-parse HEAD 2>/dev/null || true)"
+          if [[ -z "${head_commit}" ]]; then
+            head_commit="${GITHUB_SHA}"
+          fi
+          exact_head_tag="$(git -C "${git_workspace}" describe --tags --exact-match 2>/dev/null || true)"
+
           source_tag="${INPUT_TAG_OVERRIDE}"
+          if [[ "${INPUT_MODE}" == "publish" && -n "${source_tag}" ]]; then
+            override_commit="$(git -C "${git_workspace}" rev-parse -q --verify "refs/tags/${source_tag}^{commit}" 2>/dev/null || true)"
+            if [[ -z "${override_commit}" ]]; then
+              echo "publish mode tag_override must reference an existing git tag" >&2
+              exit 1
+            fi
+            if [[ "${override_commit}" != "${head_commit}" ]]; then
+              echo "publish mode tag_override must reference a git tag that points at HEAD" >&2
+              exit 1
+            fi
+          fi
+
           if [[ -z "${source_tag}" ]]; then
-            source_tag="$(git describe --tags --exact-match 2>/dev/null || true)"
+            source_tag="${exact_head_tag}"
           fi
 
           if [[ -n "${source_tag}" ]]; then
@@ -125,7 +145,7 @@ jobs:
           fi
 
           if [[ "${INPUT_MODE}" == "publish" && -z "${source_tag}" ]]; then
-            echo "publish mode requires an exact git tag at HEAD or a tag_override input" >&2
+            echo "publish mode requires HEAD to be on an exact git tag or a matching tag_override input" >&2
             exit 1
           fi
 
