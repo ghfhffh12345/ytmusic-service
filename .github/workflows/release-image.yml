@@ -112,10 +112,6 @@ jobs:
           act_env="${ACT:-}"
           workflow_ref_type="${GITHUB_REF_TYPE:-}"
           workflow_ref_name="${GITHUB_REF_NAME:-}"
-          git_metadata_available="false"
-          if git -C "${git_workspace}" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-            git_metadata_available="true"
-          fi
 
           short_sha="$(git -C "${git_workspace}" rev-parse --short=12 HEAD 2>/dev/null || true)"
           if [[ -z "${short_sha}" ]]; then
@@ -126,8 +122,16 @@ jobs:
           if [[ -z "${head_commit}" ]]; then
             head_commit="${GITHUB_SHA}"
           fi
+          workflow_ref_tag_commit=""
+          workflow_ref_tag_metadata_unavailable="false"
+          if [[ "${workflow_ref_type}" == "tag" && -n "${workflow_ref_name}" ]]; then
+            workflow_ref_tag_commit="$(git -C "${git_workspace}" rev-parse -q --verify "refs/tags/${workflow_ref_name}^{commit}" 2>/dev/null || true)"
+            if [[ -z "${workflow_ref_tag_commit}" ]]; then
+              workflow_ref_tag_metadata_unavailable="true"
+            fi
+          fi
           exact_head_tag="$(git -C "${git_workspace}" describe --tags --exact-match 2>/dev/null || true)"
-          if [[ -z "${exact_head_tag}" && "${act_env}" == "true" && "${workflow_ref_type}" == "tag" && -n "${workflow_ref_name}" && "${git_metadata_available}" == "false" && "${head_commit}" == "${GITHUB_SHA}" ]]; then
+          if [[ -z "${exact_head_tag}" && "${act_env}" == "true" && "${workflow_ref_tag_metadata_unavailable}" == "true" && "${head_commit}" == "${GITHUB_SHA}" ]]; then
             exact_head_tag="${workflow_ref_name}"
           fi
 
@@ -135,7 +139,7 @@ jobs:
           if [[ "${INPUT_MODE}" == "publish" && -n "${source_tag}" ]]; then
             override_commit="$(git -C "${git_workspace}" rev-parse -q --verify "refs/tags/${source_tag}^{commit}" 2>/dev/null || true)"
             if [[ -z "${override_commit}" ]]; then
-              if [[ "${act_env}" == "true" && "${workflow_ref_type}" == "tag" && "${workflow_ref_name}" == "${source_tag}" && "${head_commit}" == "${GITHUB_SHA}" ]]; then
+              if [[ "${act_env}" == "true" && "${workflow_ref_tag_metadata_unavailable}" == "true" && "${workflow_ref_name}" == "${source_tag}" && "${head_commit}" == "${GITHUB_SHA}" ]]; then
                 override_commit="${head_commit}"
               else
                 echo "publish mode tag_override must reference an existing git tag" >&2
