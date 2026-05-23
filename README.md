@@ -16,7 +16,6 @@ Use the admin port for reflection and admin RPCs. Use the public port for music 
 You will need:
 
 - Docker for container runs and local image builds
-- `act` if you want to run the repository workflow locally
 - `grpcurl` if you want to inspect services or send test requests
 - A valid `browser.json` for the YouTube Music account the service should use
 
@@ -49,42 +48,28 @@ docker run --rm \
   ghcr.io/ghfhffh12345/ytmusic-service:latest
 ```
 
-## Run GitHub Actions locally with act
+## Publish images
 
-Use `act` when you want to execute the repository's Docker image workflow locally instead of relying on GitHub-hosted runners.
-
-Fast host-architecture build that loads the image into your local Docker daemon:
+GitHub Actions publishes container releases automatically on GitHub-hosted runners when you push an exact `vX.Y.Z` Git tag:
 
 ```bash
-act workflow_dispatch \
-  -W .github/workflows/release-image.yml \
-  --input mode=local \
-  --input platforms=host \
-  -P ubuntu-22.04=catthehacker/ubuntu:act-22.04
+git tag v0.1.1
+git push origin v0.1.1
 ```
 
-Explicit multi-architecture build that writes an OCI archive to `dist/ytmusic-service-multiarch.tar`:
+A successful workflow run publishes these GHCR tags:
 
-```bash
-act workflow_dispatch \
-  -W .github/workflows/release-image.yml \
-  --input mode=local \
-  --input platforms=multiarch \
-  -P ubuntu-22.04=catthehacker/ubuntu:act-22.04
-```
+- `ghcr.io/ghfhffh12345/ytmusic-service:0.1.1`
+- `ghcr.io/ghfhffh12345/ytmusic-service:0.1`
+- `ghcr.io/ghfhffh12345/ytmusic-service:0`
+- `ghcr.io/ghfhffh12345/ytmusic-service:latest`
 
-Publish to GHCR from your local machine. If `HEAD` is already on an exact Git tag, you can omit `tag_override`:
+The published image is a multi-architecture manifest for:
 
-```bash
-act workflow_dispatch \
-  -W .github/workflows/release-image.yml \
-  --input mode=publish \
-  --input platforms=multiarch \
-  --input tag_override=v0.1.0 \
-  -s GHCR_USERNAME="$GHCR_USERNAME" \
-  -s GHCR_TOKEN="$GHCR_TOKEN" \
-  -P ubuntu-22.04=catthehacker/ubuntu:act-22.04
-```
+- `linux/amd64`
+- `linux/arm64`
+
+The workflow rejects tags such as `v0.1`, `v0`, and `v0.1.1-rc1`. Push exact release tags only.
 
 ## Run from source
 
