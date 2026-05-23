@@ -215,7 +215,19 @@ jobs:
           VERSION_TAG: ${{ needs.prepare.outputs.version_tag }}
         run: |
           set -euo pipefail
-          docker buildx imagetools inspect "${IMAGE_REF}:${VERSION_TAG}"
+          for attempt in 1 2 3 4 5; do
+            if docker buildx imagetools inspect "${IMAGE_REF}:${VERSION_TAG}"; then
+              exit 0
+            fi
+
+            if [[ "${attempt}" -eq 5 ]]; then
+              echo "Published manifest was still unavailable after ${attempt} inspection attempts." >&2
+              exit 1
+            fi
+
+            echo "Manifest not visible yet in GHCR; retrying in 5 seconds (attempt ${attempt}/5)." >&2
+            sleep 5
+          done
 
       - name: Summarize published image
         shell: bash
