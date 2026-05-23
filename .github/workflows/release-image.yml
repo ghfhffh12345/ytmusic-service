@@ -1,29 +1,9 @@
 name: Docker Image
 
 on:
-  workflow_dispatch:
-    inputs:
-      mode:
-        description: Choose between an act-driven local build and a publish run.
-        required: true
-        default: local
-        type: choice
-        options:
-          - local
-          - publish
-      platforms:
-        description: Choose the host architecture or an explicit linux/amd64 + linux/arm64 build.
-        required: true
-        default: host
-        type: choice
-        options:
-          - host
-          - multiarch
-      tag_override:
-        description: Optional image tag override. Publish mode otherwise requires HEAD to be on an exact git tag.
-        required: false
-        default: ""
-        type: string
+  push:
+    tags:
+      - "v*"
 
 permissions:
   contents: read
@@ -33,294 +13,230 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 concurrency:
-  group: docker-image-${{ github.workflow }}-${{ github.ref }}-${{ inputs.mode }}-${{ inputs.platforms }}
+  group: docker-image-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
-  build-image:
-    name: Build Docker Image
-    runs-on: ubuntu-22.04
-
+  prepare:
+    runs-on: ubuntu-24.04
+    outputs:
+      version_tag: ${{ steps.meta.outputs.version_tag }}
+      minor_tag: ${{ steps.meta.outputs.minor_tag }}
+      major_tag: ${{ steps.meta.outputs.major_tag }}
+      latest_tag: ${{ steps.meta.outputs.latest_tag }}
+      image_ref: ${{ steps.meta.outputs.image_ref }}
+      platforms: ${{ steps.meta.outputs.platforms }}
+      oci_labels: ${{ steps.meta.outputs.oci_labels }}
+      image_annotations: ${{ steps.meta.outputs.image_annotations }}
+      oci_annotations: ${{ steps.meta.outputs.oci_annotations }}
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-
-      - name: Validate workflow inputs
-        shell: bash
-        env:
-          INPUT_MODE: ${{ inputs.mode }}
-          INPUT_PLATFORMS: ${{ inputs.platforms }}
-          ACT_ENV: ${{ env.ACT }}
-        run: |
-          set -euo pipefail
-
-          if [[ "${INPUT_MODE}" == "local" && "${ACT_ENV:-}" != "true" ]]; then
-            echo "local mode is only supported when the workflow is run under act (ACT=true)" >&2
-            exit 1
-          fi
-
-          if [[ "${INPUT_MODE}" == "publish" && "${INPUT_PLATFORMS}" != "multiarch" ]]; then
-            echo "publish mode requires platforms=multiarch" >&2
-            exit 1
-          fi
-
-      - name: Derive image metadata
+      - name: Validate release tag and derive metadata
         id: meta
         shell: bash
         env:
-          INPUT_MODE: ${{ inputs.mode }}
-          INPUT_PLATFORMS: ${{ inputs.platforms }}
-          INPUT_TAG_OVERRIDE: ${{ inputs.tag_override }}
           REPOSITORY_OWNER: ${{ github.repository_owner }}
-          REPOSITORY_NAME: ${{ github.repository }}
         run: |
           set -euo pipefail
 
-          owner="${REPOSITORY_OWNER:-ghfhffh12345}"
-          owner="${owner,,}"
-          repo="${REPOSITORY_NAME:-ghfhffh12345/ytmusic-service}"
+          source_url="https://github.com/ghfhffh12345/ytmusic-service"
+          documentation_url="${source_url}#readme"
+          description="gRPC service layer for various YouTube Music features"
+          title="ytmusic-service"
+          tag_name="${GITHUB_REF_NAME:-}"
 
-          image_name="ytmusic-service"
-          registry_namespace="ghcr.io/${owner}"
-          image_ref="${registry_namespace}/${image_name}"
-
-          host_arch="$(uname -m)"
-          case "${host_arch}" in
-            x86_64|amd64)
-              host_platform="linux/amd64"
-              ;;
-            aarch64|arm64)
-              host_platform="linux/arm64"
-              ;;
-            *)
-              echo "Unsupported host architecture: ${host_arch}" >&2
-              exit 1
-              ;;
-          esac
-
-          if [[ "${INPUT_PLATFORMS}" == "host" ]]; then
-            build_platforms="${host_platform}"
-            use_qemu="false"
-          else
-            build_platforms="linux/amd64,linux/arm64"
-            use_qemu="true"
-          fi
-
-          git_workspace="${GITHUB_WORKSPACE:-.}"
-          act_env="${ACT:-}"
-          workflow_ref_type="${GITHUB_REF_TYPE:-}"
-          workflow_ref_name="${GITHUB_REF_NAME:-}"
-
-          short_sha="$(git -C "${git_workspace}" rev-parse --short=12 HEAD 2>/dev/null || true)"
-          if [[ -z "${short_sha}" ]]; then
-            short_sha="${GITHUB_SHA:0:12}"
-          fi
-
-          head_commit="$(git -C "${git_workspace}" rev-parse HEAD 2>/dev/null || true)"
-          if [[ -z "${head_commit}" ]]; then
-            head_commit="${GITHUB_SHA}"
-          fi
-          workflow_ref_tag_commit=""
-          workflow_ref_tag_metadata_unavailable="false"
-          if [[ "${workflow_ref_type}" == "tag" && -n "${workflow_ref_name}" ]]; then
-            workflow_ref_tag_commit="$(git -C "${git_workspace}" rev-parse -q --verify "refs/tags/${workflow_ref_name}^{commit}" 2>/dev/null || true)"
-            if [[ -z "${workflow_ref_tag_commit}" ]]; then
-              workflow_ref_tag_metadata_unavailable="true"
-            fi
-          fi
-          exact_head_tag="$(git -C "${git_workspace}" describe --tags --exact-match 2>/dev/null || true)"
-          if [[ -z "${exact_head_tag}" && "${act_env}" == "true" && "${workflow_ref_tag_metadata_unavailable}" == "true" && "${head_commit}" == "${GITHUB_SHA}" ]]; then
-            exact_head_tag="${workflow_ref_name}"
-          fi
-
-          source_tag="${INPUT_TAG_OVERRIDE}"
-          if [[ "${INPUT_MODE}" == "publish" && -n "${source_tag}" ]]; then
-            override_commit="$(git -C "${git_workspace}" rev-parse -q --verify "refs/tags/${source_tag}^{commit}" 2>/dev/null || true)"
-            if [[ -z "${override_commit}" ]]; then
-              if [[ "${act_env}" == "true" && "${workflow_ref_tag_metadata_unavailable}" == "true" && "${workflow_ref_name}" == "${source_tag}" && "${head_commit}" == "${GITHUB_SHA}" ]]; then
-                override_commit="${head_commit}"
-              else
-                echo "publish mode tag_override must reference an existing git tag" >&2
-                exit 1
-              fi
-            fi
-            if [[ "${override_commit}" != "${head_commit}" ]]; then
-              echo "publish mode tag_override must reference a git tag that points at HEAD" >&2
-              exit 1
-            fi
-          fi
-
-          if [[ -z "${source_tag}" ]]; then
-            source_tag="${exact_head_tag}"
-          fi
-
-          if [[ -n "${source_tag}" ]]; then
-            primary_tag="${source_tag#v}"
-          else
-            primary_tag="local-${short_sha}"
-          fi
-
-          if [[ "${INPUT_MODE}" == "publish" && -z "${source_tag}" ]]; then
-            echo "publish mode requires HEAD to be on an exact git tag or a matching tag_override input" >&2
+          if [[ ! "${tag_name}" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            echo "Release tags must exactly match vX.Y.Z; received '${tag_name:-<empty>}'." >&2
             exit 1
           fi
 
-          declare -a tags=()
-          declare -A seen=()
-
-          add_tag() {
-            local candidate="$1"
-            if [[ -n "${candidate}" && -z "${seen[$candidate]:-}" ]]; then
-              tags+=("${image_ref}:${candidate}")
-              seen["$candidate"]=1
-            fi
-          }
-
-          add_tag "${primary_tag}"
-
-          if [[ "${INPUT_MODE}" == "local" ]]; then
-            add_tag "local"
-          fi
-
-          if [[ "${INPUT_MODE}" == "publish" && "${primary_tag}" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
-            add_tag "${BASH_REMATCH[1]}.${BASH_REMATCH[2]}"
-            add_tag "${BASH_REMATCH[1]}"
-            add_tag "latest"
-          fi
+          owner="${REPOSITORY_OWNER,,}"
+          version_tag="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.${BASH_REMATCH[3]}"
+          minor_tag="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}"
+          major_tag="${BASH_REMATCH[1]}"
+          latest_tag="latest"
+          image_ref="ghcr.io/${owner}/ytmusic-service"
 
           {
+            echo "version_tag=${version_tag}"
+            echo "minor_tag=${minor_tag}"
+            echo "major_tag=${major_tag}"
+            echo "latest_tag=${latest_tag}"
             echo "image_ref=${image_ref}"
-            echo "build_platforms=${build_platforms}"
-            echo "use_qemu=${use_qemu}"
-            echo "primary_tag=${primary_tag}"
-            echo "tags<<EOF"
-            printf '%s\n' "${tags[@]}"
-            echo "EOF"
+            echo "platforms=linux/amd64,linux/arm64"
             echo "oci_labels<<EOF"
-            echo "org.opencontainers.image.title=ytmusic-service"
-            echo "org.opencontainers.image.description=gRPC service layer for various YouTube Music features"
+            echo "org.opencontainers.image.source=https://github.com/ghfhffh12345/ytmusic-service"
+            echo "org.opencontainers.image.title=${title}"
+            echo "org.opencontainers.image.description=${description}"
+            echo "org.opencontainers.image.documentation=${documentation_url}"
             echo "org.opencontainers.image.revision=${GITHUB_SHA}"
-            echo "org.opencontainers.image.version=${primary_tag}"
-            echo "org.opencontainers.image.documentation=https://github.com/${repo}#readme"
+            echo "org.opencontainers.image.version=${version_tag}"
+            echo "EOF"
+            echo "image_annotations<<EOF"
+            echo "org.opencontainers.image.source=https://github.com/ghfhffh12345/ytmusic-service"
+            echo "org.opencontainers.image.title=${title}"
+            echo "org.opencontainers.image.description=${description}"
+            echo "org.opencontainers.image.documentation=${documentation_url}"
+            echo "org.opencontainers.image.revision=${GITHUB_SHA}"
+            echo "org.opencontainers.image.version=${version_tag}"
             echo "EOF"
             echo "oci_annotations<<EOF"
-            echo "index:org.opencontainers.image.source=https://github.com/${repo}"
-            echo "index:org.opencontainers.image.description=gRPC service layer for various YouTube Music features"
+            echo "index:org.opencontainers.image.source=https://github.com/ghfhffh12345/ytmusic-service"
+            echo "manifest-descriptor:org.opencontainers.image.source=https://github.com/ghfhffh12345/ytmusic-service"
+            echo "index:org.opencontainers.image.title=${title}"
+            echo "manifest-descriptor:org.opencontainers.image.title=${title}"
+            echo "index:org.opencontainers.image.description=${description}"
+            echo "manifest-descriptor:org.opencontainers.image.description=${description}"
+            echo "index:org.opencontainers.image.documentation=${documentation_url}"
+            echo "manifest-descriptor:org.opencontainers.image.documentation=${documentation_url}"
+            echo "index:org.opencontainers.image.revision=${GITHUB_SHA}"
+            echo "manifest-descriptor:org.opencontainers.image.revision=${GITHUB_SHA}"
+            echo "index:org.opencontainers.image.version=${version_tag}"
+            echo "manifest-descriptor:org.opencontainers.image.version=${version_tag}"
             echo "EOF"
           } >> "${GITHUB_OUTPUT}"
 
-      - name: Validate act publish secrets
-        if: ${{ inputs.mode == 'publish' }}
-        shell: bash
-        env:
-          ACT_ENV: ${{ env.ACT }}
-          GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
-          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
-        run: |
-          set -euo pipefail
-          if [[ "${ACT_ENV:-}" == "true" ]]; then
-            test -n "${GHCR_USERNAME}" || { echo "GHCR_USERNAME is required for act publish mode" >&2; exit 1; }
-            test -n "${GHCR_TOKEN}" || { echo "GHCR_TOKEN is required for act publish mode" >&2; exit 1; }
-          fi
-
-      - name: Set up QEMU
-        if: ${{ steps.meta.outputs.use_qemu == 'true' }}
-        uses: docker/setup-qemu-action@v4
+  build-amd64:
+    needs: prepare
+    runs-on: ubuntu-24.04
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
       - name: Log in to GHCR
-        if: ${{ inputs.mode == 'publish' }}
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
-          username: ${{ secrets.GHCR_USERNAME != '' && secrets.GHCR_USERNAME || github.actor }}
-          password: ${{ secrets.GHCR_TOKEN != '' && secrets.GHCR_TOKEN || github.token }}
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
 
-      - name: Prepare local OCI archive directory
-        if: ${{ inputs.mode == 'local' && inputs.platforms == 'multiarch' }}
-        run: mkdir -p dist
-
-      - name: Build local host-architecture image
-        if: ${{ inputs.mode == 'local' && inputs.platforms == 'host' }}
+      - name: Build and push linux/amd64 image by digest
+        id: build
         uses: docker/build-push-action@v7
         with:
           context: .
           file: ./Dockerfile
-          load: true
-          platforms: ${{ steps.meta.outputs.build_platforms }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.oci_labels }}
+          platforms: linux/amd64
+          provenance: false
+          outputs: type=image,name=${{ needs.prepare.outputs.image_ref }},push-by-digest=true,name-canonical=true,push=true
+          labels: ${{ needs.prepare.outputs.oci_labels }}
+          annotations: ${{ needs.prepare.outputs.image_annotations }}
 
-      - name: Build local multi-architecture OCI archive
-        if: ${{ inputs.mode == 'local' && inputs.platforms == 'multiarch' }}
+  build-arm64:
+    needs: prepare
+    runs-on: ubuntu-24.04-arm
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Build and push linux/arm64 image by digest
+        id: build
         uses: docker/build-push-action@v7
         with:
           context: .
           file: ./Dockerfile
-          platforms: ${{ steps.meta.outputs.build_platforms }}
-          outputs: type=oci,dest=${{ github.workspace }}/dist/ytmusic-service-multiarch.tar
-          tags: ${{ steps.meta.outputs.tags }}
-          annotations: ${{ steps.meta.outputs.oci_annotations }}
-          labels: ${{ steps.meta.outputs.oci_labels }}
+          platforms: linux/arm64
+          provenance: false
+          outputs: type=image,name=${{ needs.prepare.outputs.image_ref }},push-by-digest=true,name-canonical=true,push=true
+          labels: ${{ needs.prepare.outputs.oci_labels }}
+          annotations: ${{ needs.prepare.outputs.image_annotations }}
 
-      - name: Export multi-architecture OCI archive for act
-        if: ${{ env.ACT == 'true' && inputs.mode == 'local' && inputs.platforms == 'multiarch' }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          docker run --rm -i \
-            -v "${GITHUB_WORKSPACE}:/host-workspace" \
-            alpine:3.22 \
-            sh -c '
-              set -euo pipefail
-              owner="$(stat -c "%u:%g" /host-workspace)"
-              mkdir -p /host-workspace/dist
-              cat > /host-workspace/dist/ytmusic-service-multiarch.tar
-              chown "${owner}" /host-workspace/dist /host-workspace/dist/ytmusic-service-multiarch.tar
-            ' \
-            < "${GITHUB_WORKSPACE}/dist/ytmusic-service-multiarch.tar"
+  publish-manifest:
+    needs:
+      - prepare
+      - build-amd64
+      - build-arm64
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
 
-      - name: Build and push published image
-        if: ${{ inputs.mode == 'publish' }}
-        uses: docker/build-push-action@v7
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
         with:
-          context: .
-          file: ./Dockerfile
-          push: true
-          platforms: ${{ steps.meta.outputs.build_platforms }}
-          tags: ${{ steps.meta.outputs.tags }}
-          annotations: ${{ steps.meta.outputs.oci_annotations }}
-          labels: ${{ steps.meta.outputs.oci_labels }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
 
-      - name: Summarize image result
+      - name: Create and push multi-arch manifest
         shell: bash
         env:
-          INPUT_MODE: ${{ inputs.mode }}
-          INPUT_PLATFORMS: ${{ inputs.platforms }}
-          BUILD_PLATFORMS: ${{ steps.meta.outputs.build_platforms }}
-          IMAGE_TAGS: ${{ steps.meta.outputs.tags }}
-          IMAGE_REF: ${{ steps.meta.outputs.image_ref }}
+          IMAGE_REF: ${{ needs.prepare.outputs.image_ref }}
+          VERSION_TAG: ${{ needs.prepare.outputs.version_tag }}
+          MINOR_TAG: ${{ needs.prepare.outputs.minor_tag }}
+          MAJOR_TAG: ${{ needs.prepare.outputs.major_tag }}
+          LATEST_TAG: ${{ needs.prepare.outputs.latest_tag }}
+          OCI_ANNOTATIONS: ${{ needs.prepare.outputs.oci_annotations }}
+          AMD64_DIGEST: ${{ needs.build-amd64.outputs.digest }}
+          ARM64_DIGEST: ${{ needs.build-arm64.outputs.digest }}
+        run: |
+          set -euo pipefail
+
+          create_args=(
+            --tag "${IMAGE_REF}:${VERSION_TAG}"
+            --tag "${IMAGE_REF}:${MINOR_TAG}"
+            --tag "${IMAGE_REF}:${MAJOR_TAG}"
+            --tag "${IMAGE_REF}:${LATEST_TAG}"
+          )
+
+          while IFS= read -r annotation; do
+            if [[ -n "${annotation}" ]]; then
+              create_args+=(--annotation "${annotation}")
+            fi
+          done <<< "${OCI_ANNOTATIONS}"
+
+          create_args+=(
+            "${IMAGE_REF}@${AMD64_DIGEST}"
+            "${IMAGE_REF}@${ARM64_DIGEST}"
+          )
+
+          docker buildx imagetools create "${create_args[@]}"
+
+      - name: Inspect published manifest
+        shell: bash
+        env:
+          IMAGE_REF: ${{ needs.prepare.outputs.image_ref }}
+          VERSION_TAG: ${{ needs.prepare.outputs.version_tag }}
+        run: |
+          set -euo pipefail
+          docker buildx imagetools inspect "${IMAGE_REF}:${VERSION_TAG}"
+
+      - name: Summarize published image
+        shell: bash
+        env:
+          IMAGE_REF: ${{ needs.prepare.outputs.image_ref }}
+          VERSION_TAG: ${{ needs.prepare.outputs.version_tag }}
+          MINOR_TAG: ${{ needs.prepare.outputs.minor_tag }}
+          MAJOR_TAG: ${{ needs.prepare.outputs.major_tag }}
+          LATEST_TAG: ${{ needs.prepare.outputs.latest_tag }}
+          PLATFORMS: ${{ needs.prepare.outputs.platforms }}
         run: |
           set -euo pipefail
           {
-            echo "## Docker image result"
+            echo "## Docker image published"
             echo
-            echo "- Mode: \`${INPUT_MODE}\`"
-            echo "- Platforms: \`${BUILD_PLATFORMS}\`"
             echo "- Image ref: \`${IMAGE_REF}\`"
             echo "- Tags:"
-            while IFS= read -r line; do
-              echo "  - \`${line}\`"
-            done <<< "${IMAGE_TAGS}"
-            if [[ "${INPUT_MODE}" == "local" && "${INPUT_PLATFORMS}" == "host" ]]; then
-              echo "- Result: image loaded into the local Docker daemon"
-            elif [[ "${INPUT_MODE}" == "local" ]]; then
-              echo "- Result: OCI archive written to \`dist/ytmusic-service-multiarch.tar\`"
-            else
-              echo "- Result: image pushed to GHCR"
-            fi
+            echo "  - \`${VERSION_TAG}\`"
+            echo "  - \`${MINOR_TAG}\`"
+            echo "  - \`${MAJOR_TAG}\`"
+            echo "  - \`${LATEST_TAG}\`"
+            echo "- Platforms: \`${PLATFORMS}\`"
+            echo "- Result: image pushed to GHCR"
           } >> "${GITHUB_STEP_SUMMARY}"
