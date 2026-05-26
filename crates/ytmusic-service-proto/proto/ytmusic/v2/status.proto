@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package ytmusic.v2;
+
+service ServiceStatus {
+  rpc GetStatus(GetStatusRequest) returns (GetStatusResponse);
+}
+
+message GetStatusRequest {}
+
+message GetStatusResponse {
+  string version = 1;
+  uint64 started_at_unix_seconds = 2;
+  string listen_addr = 3;
+  bool ytmusic_ready = 4;
+  bool cipher_ready = 5;
+  string lifecycle = 6;
+}

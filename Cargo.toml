@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "crates/ytmusic-service",
+    "crates/ytmusic-service-client",
     "crates/ytmusic-service-proto",
 ]
 resolver = "3"
@@ -22,9 +23,11 @@ tonic-health = "0.12"
 tonic-reflection = "0.12"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+tower = { version = "0.5", features = ["timeout"] }
 uuid = { version = "1", features = ["v4"] }
 tempfile = "3"
 protoc-bin-vendored = "3.2.0"
 tonic-build = "0.12"
+wiremock = "0.6"
 yt-cipher = { git = "https://github.com/ghfhffh12345/yt-cipher.git", tag = "v0.1.0" }
 ytmusicapi = { git = "https://github.com/ghfhffh12345/ytmusicapi.git", tag = "v0.1.0" }

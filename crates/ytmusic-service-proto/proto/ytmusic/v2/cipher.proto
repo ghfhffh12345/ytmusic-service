@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package ytmusic.v2;
+
+import "ytmusic/v2/common.proto";
+
+service YtCipher {
+  rpc GetSignatureTimestamp(Empty) returns (GetSignatureTimestampResponse);
+  rpc Refresh(Empty) returns (RefreshCipherResponse);
+  rpc Decipher(DecipherRequest) returns (DecipherResponse);
+}
+
+message GetSignatureTimestampResponse {
+  uint32 signature_timestamp = 1;
+}
+
+message RefreshCipherResponse {}
+
+message DecipherRequest {
+  string signature_cipher = 1;
+}
+
+message DecipherResponse {
+  string playable_url = 1;
+}

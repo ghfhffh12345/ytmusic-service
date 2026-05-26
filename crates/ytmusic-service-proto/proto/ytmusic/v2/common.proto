@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package ytmusic.v2;
+
+message Empty {}
+
+message Thumbnail {
+  string url = 1;
+  uint32 width = 2;
+  uint32 height = 3;
+}
+
+message ArtistRef {
+  string id = 1;
+  string name = 2;
+}
+
+message AlbumRef {
+  string id = 1;
+  string name = 2;
+}

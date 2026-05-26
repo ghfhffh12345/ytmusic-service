@@ -2752,6 +2752,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ytmusic-service-client"
+version = "0.1.0"
+dependencies = [
+ "thiserror",
+ "tonic",
+ "ytmusic-service-proto",
+]
+
+[[package]]
 name = "ytmusic-service-proto"
 version = "0.1.0"
 dependencies = [

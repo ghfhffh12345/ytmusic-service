@@ -1,0 +1,9 @@
+[package]
+name = "ytmusic-service-client"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+thiserror.workspace = true
+tonic.workspace = true
+ytmusic-service-proto = { path = "../ytmusic-service-proto" }
