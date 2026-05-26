@@ -108,8 +108,10 @@ jobs:
       - name: Cache Cargo artifacts
         uses: Swatinem/rust-cache@v2
 
-      - name: Build release binary
-        run: cargo build --locked --release -p ytmusic-service
+      - name: Build local smoke image
+        env:
+          LIVE_SMOKE_IMAGE: ytmusic-service-live-smoke:${{ github.sha }}
+        run: docker build -t "${LIVE_SMOKE_IMAGE}" .
 
       - name: Materialize live browser auth file
         shell: bash
@@ -143,8 +145,46 @@ jobs:
             echo "YTMUSIC_SERVICE_LIVE_QUERY=${LIVE_QUERY}" >> "${GITHUB_ENV}"
           fi
 
+      - name: Run live smoke container
+        shell: bash
+        env:
+          LIVE_SMOKE_IMAGE: ytmusic-service-live-smoke:${{ github.sha }}
+          LIVE_SMOKE_CONTAINER: ytmusic-service-live-smoke
+        run: |
+          set -euo pipefail
+
+          docker rm -f "${LIVE_SMOKE_CONTAINER}" >/dev/null 2>&1 || true
+
+          docker run -d \
+            --name "${LIVE_SMOKE_CONTAINER}" \
+            -p 127.0.0.1::50051 \
+            -e YTMUSIC_SERVICE_ADDR=0.0.0.0:50051 \
+            -e YTMUSIC_SERVICE_BROWSER_JSON=/run/secrets/browser.json \
+            -v "${YTMUSIC_SERVICE_LIVE_BROWSER_JSON}:/run/secrets/browser.json:ro" \
+            "${LIVE_SMOKE_IMAGE}"
+
+          host_port="$(docker port "${LIVE_SMOKE_CONTAINER}" 50051/tcp | awk -F: 'NR==1 {print $NF}')"
+          if [[ -z "${host_port}" ]]; then
+            echo "Failed to determine mapped host port for live smoke container." >&2
+            exit 1
+          fi
+
+          echo "YTMUSIC_SERVICE_LIVE_ENDPOINT=http://127.0.0.1:${host_port}" >> "${GITHUB_ENV}"
+
       - name: Run live smoke test
         run: cargo test -p ytmusic-service --test live_smoke -- --ignored --nocapture
+
+      - name: Print live smoke container logs on failure
+        if: failure()
+        env:
+          LIVE_SMOKE_CONTAINER: ytmusic-service-live-smoke
+        run: docker logs "${LIVE_SMOKE_CONTAINER}"
+
+      - name: Clean up live smoke container
+        if: always()
+        env:
+          LIVE_SMOKE_CONTAINER: ytmusic-service-live-smoke
+        run: docker rm -f "${LIVE_SMOKE_CONTAINER}" >/dev/null 2>&1 || true
 
   build-amd64:
     needs:

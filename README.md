@@ -6,7 +6,7 @@
 
 - One gRPC listener on `YTMUSIC_SERVICE_ADDR`
 - Browser-authenticated startup from `YTMUSIC_SERVICE_BROWSER_JSON`
-- Optional per-RPC timeout from `YTMUSIC_SERVICE_RPC_TIMEOUT_MS`
+- Optional positive per-RPC timeout from `YTMUSIC_SERVICE_RPC_TIMEOUT_MS`
 - Reflected and health-checked v2 service surface on the same port
 
 The exposed services are:
@@ -35,7 +35,7 @@ Startup fails if the configured `browser.json` path is missing, is not a regular
 | --- | --- | --- |
 | `YTMUSIC_SERVICE_ADDR` | Bind address for all gRPC traffic, health checks, and reflection | `127.0.0.1:50051` |
 | `YTMUSIC_SERVICE_BROWSER_JSON` | Filesystem path to the `browser.json` credentials file | `/absolute/path/to/browser.json` |
-| `YTMUSIC_SERVICE_RPC_TIMEOUT_MS` | Optional server-side timeout applied to each RPC | `15000` |
+| `YTMUSIC_SERVICE_RPC_TIMEOUT_MS` | Optional positive server-side timeout in milliseconds applied to each RPC | `15000` |
 
 ## Run with Docker
 
@@ -60,7 +60,7 @@ The live release gate requires these GitHub Actions secrets:
 - `YTMUSIC_SERVICE_LIVE_VIDEO_ID`: a known-good song video ID for `GetSong`
 - `YTMUSIC_SERVICE_LIVE_QUERY`: optional search query override; defaults to `Miles Davis`
 
-During the workflow, the browser JSON secret is written to a temporary file and passed to the smoke test through `YTMUSIC_SERVICE_LIVE_BROWSER_JSON`. The smoke test then launches the release binary with the same `YTMUSIC_SERVICE_ADDR` and `YTMUSIC_SERVICE_BROWSER_JSON` env surface used by the container runtime.
+During the workflow, the browser JSON secret is written to a temporary file, mounted into a locally built smoke-test container, and passed through the same `YTMUSIC_SERVICE_ADDR` and `YTMUSIC_SERVICE_BROWSER_JSON` env surface the image uses at runtime. The ignored smoke test connects through `YTMUSIC_SERVICE_LIVE_ENDPOINT` to validate that container before any manifest publication begins.
 
 ```bash
 git tag v0.1.1
@@ -91,7 +91,7 @@ cd ytmusic-service
 
 export YTMUSIC_SERVICE_ADDR=127.0.0.1:50051
 export YTMUSIC_SERVICE_BROWSER_JSON="$PWD/browser.json"
-# export YTMUSIC_SERVICE_RPC_TIMEOUT_MS=15000
+# export YTMUSIC_SERVICE_RPC_TIMEOUT_MS=15000  # must be greater than 0
 
 cargo run -p ytmusic-service
 ```
@@ -100,7 +100,8 @@ The source-based example assumes `browser.json` is available at `./browser.json`
 
 ## Rust consumers
 
-Rust callers who want the generated gRPC contract directly should depend on `ytmusic-service-proto`.
+Rust callers who want an ergonomic grouped client should use `ytmusic-service-client`.
+Rust callers who want the raw generated gRPC contract should use `ytmusic-service-proto`.
 
 ## Verify and use the service
 
@@ -125,6 +126,8 @@ grpcurl -plaintext \
   grpc.health.v1.Health/Check
 ```
 
+This health response confirms the process is serving that gRPC service on startup. It does not continuously probe upstream YouTube Music dependencies.
+
 Send a representative search request:
 
 ```bash
@@ -143,6 +146,8 @@ grpcurl -plaintext \
   ytmusic.v2.ServiceStatus/GetStatus
 ```
 
+`GetStatus` reports process-level startup metadata and the service's current in-process readiness view. It is not a continuous upstream liveness guarantee.
+
 ## Rotate browser credentials
 
 The service loads `browser.json` at startup. To rotate credentials, replace the file and restart the process with the same `YTMUSIC_SERVICE_BROWSER_JSON` path.
@@ -152,6 +157,7 @@ The service loads `browser.json` at startup. To rotate credentials, replace the 
 - Missing `browser.json`: startup fails if `YTMUSIC_SERVICE_BROWSER_JSON` points to a path that does not exist.
 - `browser.json` path is a directory: startup fails if the configured path is not a regular file.
 - Malformed `browser.json` or failed startup probe: regenerate the file using the [`ytmusicapi` guide](https://github.com/ghfhffh12345/ytmusicapi#generate-browserjson-with-ytmusicapi-cli), replace the configured file, and restart the service.
+- Invalid `YTMUSIC_SERVICE_RPC_TIMEOUT_MS`: if set, it must be a positive integer greater than `0`.
 - Address already in use: free the port or choose a different `YTMUSIC_SERVICE_ADDR`.
 - `grpcurl list` fails: reflection is served on the same listener as the gRPC APIs, so target `127.0.0.1:50051`.
 

@@ -222,17 +222,28 @@ fn validate_browser_auth_path(path: &Path) -> Result<(), Box<dyn std::error::Err
     Ok(())
 }
 
+fn endpoint_from_env(name: &'static str) -> Option<String> {
+    std::env::var(name)
+        .ok()
+        .filter(|value| !value.trim().is_empty())
+}
+
 #[tokio::test]
 #[ignore = "requires live YouTube Music credentials and network access"]
 async fn live_v2_stack_serves_music_cipher_and_status() -> Result<(), Box<dyn std::error::Error>> {
-    let browser_auth_path = path_from_env("YTMUSIC_SERVICE_LIVE_BROWSER_JSON")?;
-    validate_browser_auth_path(&browser_auth_path)?;
     let query =
         std::env::var("YTMUSIC_SERVICE_LIVE_QUERY").unwrap_or_else(|_| DEFAULT_QUERY.to_owned());
     let video_id = required_env("YTMUSIC_SERVICE_LIVE_VIDEO_ID")?;
-
-    let server = LiveServer::start(browser_auth_path).await?;
-    let mut client = YtMusicServiceClient::connect(server.endpoint()).await?;
+    let _server;
+    let endpoint = if let Some(endpoint) = endpoint_from_env("YTMUSIC_SERVICE_LIVE_ENDPOINT") {
+        endpoint
+    } else {
+        let browser_auth_path = path_from_env("YTMUSIC_SERVICE_LIVE_BROWSER_JSON")?;
+        validate_browser_auth_path(&browser_auth_path)?;
+        _server = LiveServer::start(browser_auth_path).await?;
+        _server.endpoint()
+    };
+    let mut client = YtMusicServiceClient::connect(endpoint).await?;
 
     let status = client.status().get_status().await?;
     assert_eq!(status.lifecycle, "serving");

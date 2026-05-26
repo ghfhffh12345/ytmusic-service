@@ -51,7 +51,9 @@ Continuation RPCs consume tokens returned by the corresponding listing call.
 
 ## Service status API summary
 
-- `GetStatus` reports listener identity, startup time, and subsystem readiness.
+- `GetStatus` reports listener identity, startup time, and the process's current in-memory readiness view.
+
+`grpc.health.v1.Health` and `GetStatus` are process/startup-level signals. They confirm the service is serving and record what succeeded during initialization, but they are not continuous upstream YouTube Music liveness probes.
 
 ## Proto sources
 

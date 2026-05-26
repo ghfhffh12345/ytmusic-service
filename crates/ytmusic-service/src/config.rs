@@ -78,7 +78,32 @@ fn parse_rpc_timeout_ms(value: &str) -> Result<Duration, ServiceError> {
         .parse::<u64>()
         .map_err(|source| ServiceError::InvalidRpcTimeoutMs {
             value: value.to_owned(),
-            source,
+            reason: source.to_string(),
         })?;
+    if millis == 0 {
+        return Err(ServiceError::InvalidRpcTimeoutMs {
+            value: value.to_owned(),
+            reason: "must be a positive integer greater than 0".to_owned(),
+        });
+    }
     Ok(Duration::from_millis(millis))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_rpc_timeout_ms;
+    use crate::error::ServiceError;
+
+    #[test]
+    fn parse_rpc_timeout_ms_rejects_zero() {
+        let error = parse_rpc_timeout_ms("0").unwrap_err();
+
+        match error {
+            ServiceError::InvalidRpcTimeoutMs { value, reason } => {
+                assert_eq!(value, "0");
+                assert_eq!(reason, "must be a positive integer greater than 0");
+            }
+            other => panic!("unexpected error: {other:?}"),
+        }
+    }
 }
