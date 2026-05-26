@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{borrow::Cow, sync::Arc};
 
 use tonic::{Request, Response, Status};
 use ytmusic_service_proto::ytmusic::v2::{self as pb, yt_music_server::YtMusic};
@@ -13,7 +13,8 @@ impl YtMusic for MusicService {
         &self,
         request: Request<pb::SearchRequest>,
     ) -> Result<Response<pb::SearchResponse>, Status> {
-        let query = search_request_to_query(request.into_inner())?;
+        let query =
+            search_request_to_query(request.into_inner()).map_err(ValidationError::into_status)?;
         let page = self.state.music.search(query).await.map_err(|source| {
             crate::error::map_service_error("ytmusic", &crate::error::ServiceError::YtMusic(source))
         })?;
@@ -30,7 +31,8 @@ impl YtMusic for MusicService {
             request.into_inner().token,
             "search continuation token must not be empty",
             ytmusicapi::SearchContinuationToken::new,
-        )?;
+        )
+        .map_err(ValidationError::into_status)?;
         let page = self
             .state
             .music
@@ -51,7 +53,8 @@ impl YtMusic for MusicService {
         &self,
         request: Request<pb::GetWatchPlaylistRequest>,
     ) -> Result<Response<pb::WatchPlaylistResponse>, Status> {
-        let query = watch_playlist_request_to_query(request.into_inner())?;
+        let query = watch_playlist_request_to_query(request.into_inner())
+            .map_err(ValidationError::into_status)?;
         let page = self
             .state
             .music
@@ -76,7 +79,8 @@ impl YtMusic for MusicService {
             request.into_inner().token,
             "watch playlist continuation token must not be empty",
             ytmusicapi::WatchPlaylistContinuationToken::new,
-        )?;
+        )
+        .map_err(ValidationError::into_status)?;
         let page = self
             .state
             .music
@@ -98,7 +102,8 @@ impl YtMusic for MusicService {
         request: Request<pb::GetSongRequest>,
     ) -> Result<Response<pb::GetSongResponse>, Status> {
         let video_id =
-            required_non_empty(request.into_inner().video_id, "video_id must not be empty")?;
+            required_non_empty(request.into_inner().video_id, "video_id must not be empty")
+                .map_err(ValidationError::into_status)?;
         let signature_timestamp = self
             .state
             .cipher
@@ -149,7 +154,8 @@ impl YtMusic for MusicService {
             request.into_inner().token,
             "library playlists continuation token must not be empty",
             ytmusicapi::LibraryPlaylistsContinuationToken::new,
-        )?;
+        )
+        .map_err(ValidationError::into_status)?;
         let page = self
             .state
             .music
@@ -214,7 +220,8 @@ impl YtMusic for MusicService {
             request.into_inner().token,
             "library artists continuation token must not be empty",
             ytmusicapi::LibraryArtistsContinuationToken::new,
-        )?;
+        )
+        .map_err(ValidationError::into_status)?;
         let page = self
             .state
             .music
@@ -259,7 +266,8 @@ impl YtMusic for MusicService {
             request.into_inner().token,
             "library albums continuation token must not be empty",
             ytmusicapi::LibraryAlbumsContinuationToken::new,
-        )?;
+        )
+        .map_err(ValidationError::into_status)?;
         let page = self
             .state
             .music
@@ -304,7 +312,8 @@ impl YtMusic for MusicService {
             request.into_inner().token,
             "library subscriptions continuation token must not be empty",
             ytmusicapi::LibrarySubscriptionsContinuationToken::new,
-        )?;
+        )
+        .map_err(ValidationError::into_status)?;
         let page = self
             .state
             .music
@@ -349,7 +358,8 @@ impl YtMusic for MusicService {
             request.into_inner().token,
             "library channels continuation token must not be empty",
             ytmusicapi::LibraryChannelsContinuationToken::new,
-        )?;
+        )
+        .map_err(ValidationError::into_status)?;
         let page = self
             .state
             .music
@@ -394,7 +404,8 @@ impl YtMusic for MusicService {
             request.into_inner().token,
             "library podcasts continuation token must not be empty",
             ytmusicapi::LibraryPodcastsContinuationToken::new,
-        )?;
+        )
+        .map_err(ValidationError::into_status)?;
         let page = self
             .state
             .music
@@ -439,7 +450,8 @@ impl YtMusic for MusicService {
             request.into_inner().token,
             "library songs continuation token must not be empty",
             ytmusicapi::LibrarySongsContinuationToken::new,
-        )?;
+        )
+        .map_err(ValidationError::into_status)?;
         let page = self
             .state
             .music
@@ -476,7 +488,8 @@ impl YtMusic for MusicService {
             request.into_inner().token,
             "liked songs continuation token must not be empty",
             ytmusicapi::LikedSongsContinuationToken::new,
-        )?;
+        )
+        .map_err(ValidationError::into_status)?;
         let page = self
             .state
             .music
@@ -521,7 +534,8 @@ impl YtMusic for MusicService {
             request.into_inner().token,
             "saved episodes continuation token must not be empty",
             ytmusicapi::SavedEpisodesContinuationToken::new,
-        )?;
+        )
+        .map_err(ValidationError::into_status)?;
         let page = self
             .state
             .music
@@ -539,7 +553,26 @@ impl YtMusic for MusicService {
     }
 }
 
-fn search_request_to_query(request: pb::SearchRequest) -> Result<ytmusicapi::SearchQuery, Status> {
+#[derive(Debug)]
+struct ValidationError {
+    message: Cow<'static, str>,
+}
+
+impl ValidationError {
+    fn new(message: impl Into<Cow<'static, str>>) -> Self {
+        Self {
+            message: message.into(),
+        }
+    }
+
+    fn into_status(self) -> Status {
+        crate::error::map_invalid_argument("ytmusic", self.message.into_owned())
+    }
+}
+
+fn search_request_to_query(
+    request: pb::SearchRequest,
+) -> Result<ytmusicapi::SearchQuery, ValidationError> {
     let query_text = required_non_empty(request.query, "query must not be empty")?;
     let mut query = ytmusicapi::SearchQuery::new(query_text);
 
@@ -562,10 +595,9 @@ fn search_request_to_query(request: pb::SearchRequest) -> Result<ytmusicapi::Sea
                 query = query.with_filter(ytmusicapi::SearchFilter::Playlists);
             }
             Err(_) => {
-                return Err(crate::error::map_invalid_argument(
-                    "ytmusic",
-                    format!("unknown search filter value: {filter}"),
-                ));
+                return Err(ValidationError::new(format!(
+                    "unknown search filter value: {filter}"
+                )));
             }
         }
     }
@@ -579,27 +611,24 @@ fn search_request_to_query(request: pb::SearchRequest) -> Result<ytmusicapi::Sea
 
 fn watch_playlist_request_to_query(
     request: pb::GetWatchPlaylistRequest,
-) -> Result<ytmusicapi::WatchPlaylistQuery, Status> {
+) -> Result<ytmusicapi::WatchPlaylistQuery, ValidationError> {
     let video_id = optional_non_empty(request.video_id, "video_id must not be empty")?;
     let playlist_id = optional_non_empty(request.playlist_id, "playlist_id must not be empty")?;
 
     if video_id.is_none() && playlist_id.is_none() {
-        return Err(crate::error::map_invalid_argument(
-            "ytmusic",
+        return Err(ValidationError::new(
             "watch playlist query requires video_id or playlist_id",
         ));
     }
 
     if request.shuffle && playlist_id.is_none() {
-        return Err(crate::error::map_invalid_argument(
-            "ytmusic",
+        return Err(ValidationError::new(
             "watch playlist shuffle requires playlist_id",
         ));
     }
 
     if request.radio && request.shuffle {
-        return Err(crate::error::map_invalid_argument(
-            "ytmusic",
+        return Err(ValidationError::new(
             "watch playlist shuffle cannot be combined with radio",
         ));
     }
@@ -621,9 +650,9 @@ fn watch_playlist_request_to_query(
     Ok(query)
 }
 
-fn required_non_empty(value: String, message: &'static str) -> Result<String, Status> {
+fn required_non_empty(value: String, message: &'static str) -> Result<String, ValidationError> {
     if value.trim().is_empty() {
-        return Err(crate::error::map_invalid_argument("ytmusic", message));
+        return Err(ValidationError::new(message));
     }
 
     Ok(value)
@@ -632,11 +661,9 @@ fn required_non_empty(value: String, message: &'static str) -> Result<String, St
 fn optional_non_empty(
     value: Option<String>,
     message: &'static str,
-) -> Result<Option<String>, Status> {
+) -> Result<Option<String>, ValidationError> {
     match value {
-        Some(value) if value.trim().is_empty() => {
-            Err(crate::error::map_invalid_argument("ytmusic", message))
-        }
+        Some(value) if value.trim().is_empty() => Err(ValidationError::new(message)),
         other => Ok(other),
     }
 }
@@ -645,6 +672,6 @@ fn continuation_token<T>(
     value: String,
     message: &'static str,
     build: impl FnOnce(String) -> T,
-) -> Result<T, Status> {
+) -> Result<T, ValidationError> {
     Ok(build(required_non_empty(value, message)?))
 }

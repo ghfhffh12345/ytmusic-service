@@ -115,7 +115,7 @@ async fn test_harness_with_song_response_and_signature_timestamp(
         .and(move |request: &Request| {
             let body: serde_json::Value = serde_json::from_slice(&request.body).unwrap();
             body["playbackContext"]["contentPlaybackContext"]["signatureTimestamp"]
-                == serde_json::Value::from(signature_timestamp)
+                == signature_timestamp
         })
         .respond_with(
             ResponseTemplate::new(200).set_body_string(read_fixture("song/raw/response1.json")),
@@ -179,6 +179,14 @@ async fn get_watch_playlist_rejects_missing_video_and_playlist_ids()
         .unwrap_err();
 
     assert_eq!(error.code(), tonic::Code::InvalidArgument);
+    assert_eq!(
+        error.message(),
+        "watch playlist query requires video_id or playlist_id"
+    );
+    assert_eq!(
+        error.metadata().get("ytmusic-service-subsystem").unwrap(),
+        "ytmusic"
+    );
     Ok(())
 }
 
