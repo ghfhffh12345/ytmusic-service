@@ -13,12 +13,12 @@ pub struct AppState {
 }
 
 impl AppState {
-    pub async fn new(config: &ServiceConfig) -> Result<Self, ServiceError> {
+    pub async fn new(
+        music: ytmusicapi::YtMusic,
+        config: &ServiceConfig,
+    ) -> Result<Self, ServiceError> {
         Ok(Self {
-            music: ytmusicapi::YtMusic::builder()
-                .browser_auth_path(config.browser_auth_path().to_path_buf())
-                .build()
-                .map_err(ServiceError::BrowserAuthLoad)?,
+            music,
             cipher: SharedCipher::new().await?,
             started_at: SystemTime::now(),
             listen_addr: config.listen_addr(),

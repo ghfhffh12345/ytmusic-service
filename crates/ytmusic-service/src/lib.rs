@@ -3,7 +3,7 @@ pub mod error;
 pub mod servers;
 pub mod state;
 
-use std::{net::SocketAddr, sync::Arc};
+use std::{future::Future, net::SocketAddr, pin::Pin, sync::Arc};
 
 use tokio::{net::TcpListener, sync::oneshot, task::JoinHandle};
 use ytmusic_service_proto::ytmusic::v2::{
@@ -11,12 +11,24 @@ use ytmusic_service_proto::ytmusic::v2::{
     yt_cipher_server::YtCipherServer, yt_music_server::YtMusicServer,
 };
 
+type StartupProbeFuture<'a> =
+    Pin<Box<dyn Future<Output = Result<(), error::ServiceError>> + Send + 'a>>;
+type StartupValidator =
+    Arc<dyn for<'a> Fn(&'a ytmusicapi::YtMusic) -> StartupProbeFuture<'a> + Send + Sync>;
+
+#[cfg_attr(not(test), allow(dead_code))]
+enum StartupValidation {
+    Production,
+    Injected(StartupValidator),
+}
+
 pub async fn run(config: config::ServiceConfig) -> Result<(), error::ServiceError> {
+    let music = load_startup_music(&config, &StartupValidation::Production).await?;
     let listener = bind_service_listener(config.listen_addr()).await?;
     let local_addr = listener
         .local_addr()
         .map_err(error::ServiceError::ListenerLocalAddr)?;
-    let state = Arc::new(state::AppState::new(&config.with_listen_addr(local_addr)).await?);
+    let state = Arc::new(state::AppState::new(music, &config.with_listen_addr(local_addr)).await?);
 
     serve(listener, state, config.rpc_timeout(), None).await
 }
@@ -29,10 +41,7 @@ pub async fn run_for_tests(
     let local_addr = listener
         .local_addr()
         .map_err(error::ServiceError::ListenerLocalAddr)?;
-    let music = ytmusicapi::YtMusic::builder()
-        .browser_auth_path(config.browser_auth_path().to_path_buf())
-        .build()
-        .map_err(error::ServiceError::BrowserAuthLoad)?;
+    let music = build_browser_auth_music(&config)?;
     let state = Arc::new(state::AppState::from_parts_for_tests(
         music,
         state::SharedCipher::unavailable_for_tests(),
@@ -103,6 +112,37 @@ async fn serve(
     server.await.map_err(error::ServiceError::Transport)
 }
 
+fn build_browser_auth_music(
+    config: &config::ServiceConfig,
+) -> Result<ytmusicapi::YtMusic, error::ServiceError> {
+    ytmusicapi::YtMusic::builder()
+        .browser_auth_path(config.browser_auth_path().to_path_buf())
+        .build()
+        .map_err(error::ServiceError::BrowserAuthLoad)
+}
+
+async fn load_startup_music(
+    config: &config::ServiceConfig,
+    validation: &StartupValidation,
+) -> Result<ytmusicapi::YtMusic, error::ServiceError> {
+    let music = build_browser_auth_music(config)?;
+
+    match validation {
+        StartupValidation::Production => validate_startup_music(&music).await?,
+        StartupValidation::Injected(validator) => validator(&music).await?,
+    }
+
+    Ok(music)
+}
+
+async fn validate_startup_music(music: &ytmusicapi::YtMusic) -> Result<(), error::ServiceError> {
+    music
+        .get_account_info()
+        .await
+        .map(|_| ())
+        .map_err(error::ServiceError::YtMusic)
+}
+
 async fn bind_service_listener(
     listen_addr: SocketAddr,
 ) -> Result<TcpListener, error::ServiceError> {
@@ -131,7 +171,24 @@ impl Drop for TestHarness {
 
 #[cfg(test)]
 mod tests {
-    use super::bind_service_listener;
+    use super::{
+        StartupProbeFuture, StartupValidation, StartupValidator, bind_service_listener,
+        load_startup_music,
+    };
+    use crate::{config::ServiceConfig, error::ServiceError};
+    use std::sync::Arc;
+    use tempfile::NamedTempFile;
+
+    fn write_minimal_valid_browser_auth(path: &std::path::Path) {
+        std::fs::write(
+            path,
+            r#"{
+  "cookie": "__Secure-3PAPISID=test-sapisid",
+  "x-goog-authuser": "0"
+}"#,
+        )
+        .unwrap();
+    }
 
     #[tokio::test]
     async fn bind_service_listener_binds_an_ephemeral_port() {
@@ -140,5 +197,29 @@ mod tests {
             .unwrap();
 
         assert_ne!(listener.local_addr().unwrap().port(), 0);
+    }
+
+    #[tokio::test]
+    async fn startup_validation_rejects_failed_probe() {
+        let browser_json = NamedTempFile::new().unwrap();
+        write_minimal_valid_browser_auth(browser_json.path());
+        let config = ServiceConfig::from_parts("127.0.0.1:0", browser_json.path()).unwrap();
+        let validator: StartupValidator =
+            Arc::new(|_: &ytmusicapi::YtMusic| -> StartupProbeFuture<'_> {
+                Box::pin(async {
+                    Err(ServiceError::YtMusic(ytmusicapi::Error::AuthValidation(
+                        "probe rejected auth".to_owned(),
+                    )))
+                })
+            });
+
+        let error = load_startup_music(&config, &StartupValidation::Injected(validator))
+            .await
+            .unwrap_err();
+
+        assert!(matches!(
+            error,
+            ServiceError::YtMusic(ytmusicapi::Error::AuthValidation(_))
+        ));
     }
 }
