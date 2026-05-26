@@ -26,14 +26,15 @@ fn test_browser_auth_file() -> std::io::Result<NamedTempFile> {
     Ok(browser_json)
 }
 
-fn ytmusicapi_fixture_path(relative: &str) -> PathBuf {
-    PathBuf::from(std::env::var("HOME").expect("HOME is set"))
-        .join(".cargo/git/checkouts/ytmusicapi-5783a8c22a58856f/7827779/crates/ytmusicapi/tests")
+fn fixture_path(relative: &str) -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("tests")
+        .join("fixtures")
         .join(relative)
 }
 
-fn read_ytmusicapi_fixture(relative: &str) -> String {
-    fs::read_to_string(ytmusicapi_fixture_path(relative)).expect("fixture is readable")
+fn read_fixture(relative: &str) -> String {
+    fs::read_to_string(fixture_path(relative)).expect("fixture is readable")
 }
 
 async fn mocked_music_server() -> MockServer {
@@ -65,9 +66,8 @@ async fn test_harness_with_mocked_music_responses()
     Mock::given(method("POST"))
         .and(path("/youtubei/v1/search"))
         .respond_with(
-            ResponseTemplate::new(200).set_body_string(read_ytmusicapi_fixture(
-                "fixtures/search/raw/songs_authenticated.json",
-            )),
+            ResponseTemplate::new(200)
+                .set_body_string(read_fixture("search/raw/songs_authenticated.json")),
         )
         .mount(&server)
         .await;
@@ -118,8 +118,7 @@ async fn test_harness_with_song_response_and_signature_timestamp(
                 == serde_json::Value::from(signature_timestamp)
         })
         .respond_with(
-            ResponseTemplate::new(200)
-                .set_body_string(read_ytmusicapi_fixture("fixtures/song/raw/response1.json")),
+            ResponseTemplate::new(200).set_body_string(read_fixture("song/raw/response1.json")),
         )
         .mount(&server)
         .await;

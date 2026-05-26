@@ -3,7 +3,7 @@ use std::sync::Arc;
 use tonic::{Request, Response, Status};
 use ytmusic_service_proto::ytmusic::v2::{self as pb, yt_music_server::YtMusic};
 
-const UNIMPLEMENTED_MESSAGE: &str = "ytmusic.v2.YtMusic RPCs are not implemented yet";
+const UNIMPLEMENTED_MESSAGE: &str = "this ytmusic.v2.YtMusic RPC is not implemented yet";
 
 pub struct MusicService {
     pub state: Arc<crate::state::AppState>,
