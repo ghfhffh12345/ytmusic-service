@@ -37,14 +37,23 @@ pub async fn run(config: config::ServiceConfig) -> Result<(), error::ServiceErro
 pub async fn run_for_tests(
     config: config::ServiceConfig,
 ) -> Result<TestHarness, error::ServiceError> {
+    let music = build_browser_auth_music(&config)?;
+    run_for_tests_with_parts(config, music, state::SharedCipher::unavailable_for_tests()).await
+}
+
+#[doc(hidden)]
+pub async fn run_for_tests_with_parts(
+    config: config::ServiceConfig,
+    music: ytmusicapi::YtMusic,
+    cipher: state::SharedCipher,
+) -> Result<TestHarness, error::ServiceError> {
     let listener = bind_service_listener(config.listen_addr()).await?;
     let local_addr = listener
         .local_addr()
         .map_err(error::ServiceError::ListenerLocalAddr)?;
-    let music = build_browser_auth_music(&config)?;
     let state = Arc::new(state::AppState::from_parts_for_tests(
         music,
-        state::SharedCipher::unavailable_for_tests(),
+        cipher,
         std::time::SystemTime::now(),
         local_addr,
     ));

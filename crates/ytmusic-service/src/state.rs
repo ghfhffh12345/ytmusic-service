@@ -91,6 +91,27 @@ impl SharedCipher {
         Self { command_tx }
     }
 
+    #[doc(hidden)]
+    pub fn fixed_signature_timestamp_for_tests(signature_timestamp: u32) -> Self {
+        let (command_tx, mut command_rx) = mpsc::channel(1);
+        tokio::spawn(async move {
+            while let Some(command) = command_rx.recv().await {
+                match command {
+                    CipherCommand::SignatureTimestamp { reply_tx } => {
+                        let _ = reply_tx.send(signature_timestamp);
+                    }
+                    CipherCommand::Refresh { reply_tx } => {
+                        let _ = reply_tx.send(Ok(()));
+                    }
+                    CipherCommand::Decipher { raw, reply_tx } => {
+                        let _ = reply_tx.send(Ok(raw));
+                    }
+                }
+            }
+        });
+        Self { command_tx }
+    }
+
     pub async fn signature_timestamp(&self) -> Result<u32, ServiceError> {
         let (reply_tx, reply_rx) = oneshot::channel();
         self.command_tx
