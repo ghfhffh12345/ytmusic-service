@@ -1,9 +1,8 @@
-name: Docker Image
+name: Release Image
 
 on:
-  push:
-    tags:
-      - "v*"
+  release:
+    types: [published]
 
 permissions:
   contents: read

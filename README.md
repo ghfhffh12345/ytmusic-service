@@ -52,7 +52,7 @@ docker run --rm \
 
 ## Publish images
 
-GitHub Actions publishes container releases automatically on GitHub-hosted runners when you push an exact `vX.Y.Z` Git tag. The release workflow now requires the ignored live smoke test to pass before image publication starts.
+GitHub Actions publishes container images automatically on GitHub-hosted runners when you publish a GitHub Release for an exact `vX.Y.Z` tag. The release workflow requires the ignored live smoke test to pass before image publication starts.
 
 The live release gate requires these GitHub Actions secrets:
 
@@ -62,10 +62,7 @@ The live release gate requires these GitHub Actions secrets:
 
 During the workflow, the browser JSON secret is written to a temporary file, mounted into a locally built smoke-test container, and passed through the same `YTMUSIC_SERVICE_ADDR` and `YTMUSIC_SERVICE_BROWSER_JSON` env surface the image uses at runtime. The ignored smoke test connects through `YTMUSIC_SERVICE_LIVE_ENDPOINT` to validate that container before any manifest publication begins.
 
-```bash
-git tag v0.1.1
-git push origin v0.1.1
-```
+Create and publish a GitHub Release for the exact tag, for example `v0.1.1`. Publishing the release, not pushing the tag alone, starts the image workflow.
 
 A successful workflow run publishes these GHCR tags:
 
@@ -74,12 +71,15 @@ A successful workflow run publishes these GHCR tags:
 - `ghcr.io/ghfhffh12345/ytmusic-service:0`
 - `ghcr.io/ghfhffh12345/ytmusic-service:latest`
 
+The `latest`, major, and minor tags are updated by every published release that uses an exact `vX.Y.Z` tag.
+GitHub prereleases published on an exact `vX.Y.Z` tag follow the same image-tag promotion rule.
+
 The published image is a multi-architecture manifest for:
 
 - `linux/amd64`
 - `linux/arm64`
 
-The workflow rejects tags such as `v0.1`, `v0`, and `v0.1.1-rc1`. Push exact release tags only.
+The workflow rejects tags such as `v0.1`, `v0`, and `v0.1.1-rc1`. Use exact `vX.Y.Z` tags only for published releases.
 
 ## Run from source
 
