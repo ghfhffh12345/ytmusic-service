@@ -2827,7 +2827,7 @@ dependencies = [
 
 [[package]]
 name = "ytmusic-service"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "reqwest 0.12.28",
  "serde",
@@ -2850,7 +2850,7 @@ dependencies = [
 
 [[package]]
 name = "ytmusic-service-client"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "thiserror",
  "tonic",
@@ -2859,7 +2859,7 @@ dependencies = [
 
 [[package]]
 name = "ytmusic-service-proto"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "prost",
  "protoc-bin-vendored",
