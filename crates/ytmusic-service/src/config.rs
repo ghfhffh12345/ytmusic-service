@@ -1,27 +1,24 @@
-use std::{net::SocketAddr, path::PathBuf};
+use std::{net::SocketAddr, path::PathBuf, time::Duration};
 
 use crate::error::ServiceError;
 
+const DEFAULT_RPC_TIMEOUT: Duration = Duration::from_secs(30);
+
 #[derive(Clone, Debug)]
 pub struct ServiceConfig {
-    public_addr: SocketAddr,
-    admin_addr: SocketAddr,
+    listen_addr: SocketAddr,
     browser_auth_path: PathBuf,
+    rpc_timeout: Duration,
 }
 
 impl ServiceConfig {
     pub fn from_env() -> Result<Self, ServiceError> {
-        let public_addr = std::env::var("YTMUSIC_SERVICE_PUBLIC_ADDR").map_err(|source| {
+        let listen_addr = std::env::var("YTMUSIC_SERVICE_LISTEN_ADDR").map_err(|source| {
             ServiceError::EnvVar {
-                name: "YTMUSIC_SERVICE_PUBLIC_ADDR",
+                name: "YTMUSIC_SERVICE_LISTEN_ADDR",
                 source,
             }
         })?;
-        let admin_addr =
-            std::env::var("YTMUSIC_SERVICE_ADMIN_ADDR").map_err(|source| ServiceError::EnvVar {
-                name: "YTMUSIC_SERVICE_ADMIN_ADDR",
-                source,
-            })?;
         let browser_auth_path =
             std::env::var("YTMUSIC_SERVICE_BROWSER_JSON").map_err(|source| {
                 ServiceError::EnvVar {
@@ -30,14 +27,14 @@ impl ServiceConfig {
                 }
             })?;
 
-        Self::from_parts(&public_addr, &admin_addr, PathBuf::from(browser_auth_path))
+        Self::from_parts(&listen_addr, PathBuf::from(browser_auth_path))
     }
 
     pub fn from_parts(
-        public_addr: &str,
-        admin_addr: &str,
-        browser_auth_path: PathBuf,
+        listen_addr: &str,
+        browser_auth_path: impl Into<PathBuf>,
     ) -> Result<Self, ServiceError> {
+        let browser_auth_path = browser_auth_path.into();
         if !browser_auth_path.exists() {
             return Err(ServiceError::BrowserAuthPathMissing(browser_auth_path));
         }
@@ -46,21 +43,29 @@ impl ServiceConfig {
         }
 
         Ok(Self {
-            public_addr: public_addr.parse()?,
-            admin_addr: admin_addr.parse()?,
+            listen_addr: listen_addr.parse()?,
             browser_auth_path,
+            rpc_timeout: DEFAULT_RPC_TIMEOUT,
         })
     }
 
-    pub fn public_addr(&self) -> SocketAddr {
-        self.public_addr
-    }
-
-    pub fn admin_addr(&self) -> SocketAddr {
-        self.admin_addr
+    pub fn listen_addr(&self) -> SocketAddr {
+        self.listen_addr
     }
 
     pub fn browser_auth_path(&self) -> &std::path::Path {
         &self.browser_auth_path
+    }
+
+    pub fn rpc_timeout(&self) -> Duration {
+        self.rpc_timeout
+    }
+
+    pub(crate) fn with_listen_addr(&self, listen_addr: SocketAddr) -> Self {
+        Self {
+            listen_addr,
+            browser_auth_path: self.browser_auth_path.clone(),
+            rpc_timeout: self.rpc_timeout,
+        }
     }
 }

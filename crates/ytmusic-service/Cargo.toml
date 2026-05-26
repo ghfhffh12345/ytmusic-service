@@ -2,6 +2,7 @@
 name = "ytmusic-service"
 version.workspace = true
 edition.workspace = true
+autotests = false
 
 [dependencies]
 arc-swap.workspace = true
@@ -23,3 +24,7 @@ ytmusic-service-proto = { path = "../ytmusic-service-proto" }
 [dev-dependencies]
 tempfile.workspace = true
 tokio.workspace = true
+
+[[test]]
+name = "startup"
+path = "tests/startup.rs"

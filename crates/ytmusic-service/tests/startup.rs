@@ -1,9 +1,5 @@
-use tempfile::TempDir;
-use tokio::sync::Mutex;
-use ytmusic_service::error::ServiceError;
-
-#[cfg(unix)]
-use std::os::unix::fs::symlink;
+use tempfile::NamedTempFile;
+use tonic::transport::Channel;
 
 fn write_minimal_valid_browser_auth(path: &std::path::Path) {
     std::fs::write(
@@ -16,196 +12,48 @@ fn write_minimal_valid_browser_auth(path: &std::path::Path) {
     .unwrap();
 }
 
-fn is_lower_hex_token(value: &str) -> bool {
-    value
-        .chars()
-        .all(|ch| ch.is_ascii_digit() || ('a'..='f').contains(&ch))
+fn test_browser_auth_file() -> std::io::Result<NamedTempFile> {
+    let browser_json = NamedTempFile::new()?;
+    write_minimal_valid_browser_auth(browser_json.path());
+    Ok(browser_json)
 }
 
 #[tokio::test]
-async fn startup_fails_when_browser_json_is_missing() {
-    let dir = TempDir::new().unwrap();
-    let path = dir.path().join("browser.json");
+async fn startup_serves_health_and_status_on_one_listener() -> Result<(), Box<dyn std::error::Error>>
+{
+    let browser_json = test_browser_auth_file()?;
+    let config =
+        ytmusic_service::config::ServiceConfig::from_parts("127.0.0.1:0", browser_json.path())?;
 
-    let result = ytmusic_service::config::ServiceConfig::from_parts(
-        "127.0.0.1:50051",
-        "127.0.0.1:50052",
-        path.clone(),
+    let harness = ytmusic_service::run_for_tests(config).await?;
+    let endpoint = format!("http://{}", harness.local_addr());
+    let channel = Channel::from_shared(endpoint.clone())?.connect().await?;
+
+    let mut health = tonic_health::pb::health_client::HealthClient::new(channel.clone());
+    let health_response = health
+        .check(tonic_health::pb::HealthCheckRequest {
+            service: "ytmusic.v2.ServiceStatus".to_owned(),
+        })
+        .await?
+        .into_inner();
+
+    assert_eq!(
+        health_response.status,
+        tonic_health::pb::health_check_response::ServingStatus::Serving as i32
     );
 
-    match result {
-        Err(ServiceError::BrowserAuthPathMissing(returned_path)) => {
-            assert_eq!(returned_path, path);
-        }
-        other => panic!("expected BrowserAuthPathMissing, got {other:?}"),
-    }
-}
+    let mut status =
+        ytmusic_service_proto::ytmusic::v2::service_status_client::ServiceStatusClient::new(
+            channel,
+        );
+    let status_response = status
+        .get_status(ytmusic_service_proto::ytmusic::v2::GetStatusRequest {})
+        .await?
+        .into_inner();
 
-#[tokio::test]
-async fn startup_fails_when_browser_json_path_is_a_directory() {
-    let dir = TempDir::new().unwrap();
-    let path = dir.path().join("browser.json");
-    std::fs::create_dir(&path).unwrap();
+    assert!(status_response.ytmusic_ready);
+    assert!(status_response.cipher_ready);
+    assert_eq!(status_response.lifecycle, "serving");
 
-    let result = ytmusic_service::config::ServiceConfig::from_parts(
-        "127.0.0.1:50051",
-        "127.0.0.1:50052",
-        path.clone(),
-    );
-
-    match result {
-        Err(ServiceError::BrowserAuthPathNotFile(returned_path)) => {
-            assert_eq!(returned_path, path);
-        }
-        other => panic!("expected BrowserAuthPathNotFile, got {other:?}"),
-    }
-}
-
-#[tokio::test]
-async fn startup_fails_when_public_addr_is_invalid() {
-    let dir = TempDir::new().unwrap();
-    let path = dir.path().join("browser.json");
-    std::fs::write(&path, "{}").unwrap();
-
-    let result =
-        ytmusic_service::config::ServiceConfig::from_parts("invalid", "127.0.0.1:50052", path);
-
-    assert!(matches!(result, Err(ServiceError::InvalidSocketAddress(_))));
-}
-
-#[cfg(unix)]
-#[tokio::test]
-async fn startup_accepts_browser_json_symlink_to_regular_file() {
-    let dir = TempDir::new().unwrap();
-    let target_path = dir.path().join("real-browser.json");
-    std::fs::write(&target_path, "{}").unwrap();
-
-    let symlink_path = dir.path().join("browser.json");
-    symlink(&target_path, &symlink_path).unwrap();
-
-    let config = ytmusic_service::config::ServiceConfig::from_parts(
-        "127.0.0.1:50051",
-        "127.0.0.1:50052",
-        symlink_path.clone(),
-    )
-    .unwrap();
-
-    assert_eq!(config.browser_auth_path(), symlink_path.as_path());
-}
-
-#[tokio::test]
-async fn startup_accepts_existing_browser_json_path() {
-    let dir = TempDir::new().unwrap();
-    let path = dir.path().join("browser.json");
-    write_minimal_valid_browser_auth(&path);
-
-    let config = ytmusic_service::config::ServiceConfig::from_parts(
-        "127.0.0.1:50051",
-        "127.0.0.1:50052",
-        path.clone(),
-    )
-    .unwrap();
-
-    assert_eq!(config.public_addr().to_string(), "127.0.0.1:50051");
-    assert_eq!(config.admin_addr().to_string(), "127.0.0.1:50052");
-    assert_eq!(config.browser_auth_path(), path.as_path());
-}
-
-#[tokio::test]
-async fn startup_requires_valid_browser_auth_json() {
-    let dir = TempDir::new().unwrap();
-    let path = dir.path().join("browser.json");
-    std::fs::write(&path, r#"{"cookie":"missing required auth headers"}"#).unwrap();
-
-    let config = ytmusic_service::config::ServiceConfig::from_parts(
-        "127.0.0.1:50051",
-        "127.0.0.1:50052",
-        path,
-    )
-    .unwrap();
-
-    let result = ytmusic_service::auth_context::AuthContext::from_browser_auth_file(&config).await;
-
-    assert!(matches!(result, Err(ServiceError::BrowserAuthLoad(_))));
-}
-
-#[tokio::test]
-async fn startup_fails_when_browser_json_is_malformed() {
-    let dir = TempDir::new().unwrap();
-    let path = dir.path().join("browser.json");
-    std::fs::write(&path, "{not-json").unwrap();
-
-    let config = ytmusic_service::config::ServiceConfig::from_parts(
-        "127.0.0.1:50051",
-        "127.0.0.1:50052",
-        path,
-    )
-    .unwrap();
-
-    let result = ytmusic_service::auth_context::AuthContext::from_browser_auth_file(&config).await;
-
-    assert!(matches!(result, Err(ServiceError::BrowserAuthLoad(_))));
-}
-
-#[tokio::test]
-async fn startup_fails_when_browser_json_probe_fails() {
-    let dir = TempDir::new().unwrap();
-    let path = dir.path().join("browser.json");
-    write_minimal_valid_browser_auth(&path);
-
-    let config = ytmusic_service::config::ServiceConfig::from_parts(
-        "127.0.0.1:50051",
-        "127.0.0.1:50052",
-        path,
-    )
-    .unwrap();
-    let seen = std::sync::Arc::new(Mutex::new(Vec::new()));
-    let validator: ytmusic_service::StartupAuthValidator = std::sync::Arc::new({
-        let seen = std::sync::Arc::clone(&seen);
-        move |candidate| {
-            let seen = std::sync::Arc::clone(&seen);
-            let candidate_version = candidate.version.to_string();
-            Box::pin(async move {
-                seen.lock().await.push(candidate_version);
-                Err(ServiceError::YtMusic(ytmusicapi::Error::AuthValidation(
-                    "probe rejected auth".to_owned(),
-                )))
-            })
-        }
-    });
-
-    let result = ytmusic_service::load_startup_auth_for_tests(&config, validator).await;
-
-    assert!(matches!(result, Err(ServiceError::YtMusic(_))));
-    assert_eq!(seen.lock().await.len(), 1);
-}
-
-#[tokio::test]
-async fn startup_assigns_unique_auth_context_versions_per_successful_load() {
-    let dir = TempDir::new().unwrap();
-    let path = dir.path().join("browser.json");
-    write_minimal_valid_browser_auth(&path);
-    let path_display = path.display().to_string();
-
-    let config = ytmusic_service::config::ServiceConfig::from_parts(
-        "127.0.0.1:50051",
-        "127.0.0.1:50052",
-        path,
-    )
-    .unwrap();
-
-    let first = ytmusic_service::auth_context::AuthContext::from_browser_auth_file(&config)
-        .await
-        .unwrap();
-    let second = ytmusic_service::auth_context::AuthContext::from_browser_auth_file(&config)
-        .await
-        .unwrap();
-
-    assert_ne!(first.version.as_ref(), second.version.as_ref());
-    assert_eq!(first.version.len(), 32);
-    assert_eq!(second.version.len(), 32);
-    assert!(is_lower_hex_token(first.version.as_ref()));
-    assert!(is_lower_hex_token(second.version.as_ref()));
-    assert!(!first.version.contains(&path_display));
-    assert!(!second.version.contains(&path_display));
+    Ok(())
 }

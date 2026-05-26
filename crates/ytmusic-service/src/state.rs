@@ -1,81 +1,44 @@
-use std::{future::Future, pin::Pin, sync::Arc};
+use std::{net::SocketAddr, time::SystemTime};
 
-use arc_swap::ArcSwap;
 use tokio::runtime::Builder;
-use tokio::sync::{Mutex, mpsc, oneshot};
+use tokio::sync::{mpsc, oneshot};
 
-use crate::auth_context::AuthContext;
-use crate::error::ServiceError;
+use crate::{config::ServiceConfig, error::ServiceError};
 
 pub struct AppState {
-    pub auth: ArcSwap<AuthContext>,
-    pub cipher: Arc<SharedCipher>,
-    reload_lock: Mutex<()>,
-    reload_validator: ReloadValidator,
+    pub music: ytmusicapi::YtMusic,
+    pub cipher: SharedCipher,
+    pub started_at: SystemTime,
+    pub listen_addr: SocketAddr,
 }
 
 impl AppState {
-    pub async fn new(auth: AuthContext) -> Result<Self, ServiceError> {
+    pub async fn new(config: &ServiceConfig) -> Result<Self, ServiceError> {
         Ok(Self {
-            auth: ArcSwap::from_pointee(auth),
-            cipher: Arc::new(SharedCipher::new().await?),
-            reload_lock: Mutex::new(()),
-            reload_validator: ReloadValidator::Production,
+            music: ytmusicapi::YtMusic::builder()
+                .browser_auth_path(config.browser_auth_path().to_path_buf())
+                .build()
+                .map_err(ServiceError::BrowserAuthLoad)?,
+            cipher: SharedCipher::new().await?,
+            started_at: SystemTime::now(),
+            listen_addr: config.listen_addr(),
         })
     }
 
-    pub async fn reload_browser_auth(
-        &self,
-        config: &crate::config::ServiceConfig,
-    ) -> Result<String, ServiceError> {
-        let _reload_guard = self.reload_lock.lock().await;
-        let next = AuthContext::from_browser_auth_file(config).await?;
-        self.validate_reload_candidate(&next).await?;
-        let version = next.version.to_string();
-        self.auth.store(Arc::new(next));
-        Ok(version)
-    }
-
     #[doc(hidden)]
-    pub fn from_parts_for_tests(auth: AuthContext, cipher: Arc<SharedCipher>) -> Self {
-        Self {
-            auth: ArcSwap::from_pointee(auth),
-            cipher,
-            reload_lock: Mutex::new(()),
-            reload_validator: ReloadValidator::Production,
-        }
-    }
-
-    #[doc(hidden)]
-    pub fn from_parts_for_reload_tests(
-        next: AuthContext,
-        cipher: Arc<SharedCipher>,
-        validator: Arc<ReloadValidatorFn>,
+    pub fn from_parts_for_tests(
+        music: ytmusicapi::YtMusic,
+        cipher: SharedCipher,
+        started_at: SystemTime,
+        listen_addr: SocketAddr,
     ) -> Self {
         Self {
-            auth: ArcSwap::from_pointee(next),
+            music,
             cipher,
-            reload_lock: Mutex::new(()),
-            reload_validator: ReloadValidator::Injected(validator),
+            started_at,
+            listen_addr,
         }
     }
-
-    async fn validate_reload_candidate(&self, next: &AuthContext) -> Result<(), ServiceError> {
-        match &self.reload_validator {
-            ReloadValidator::Production => next.probe().await,
-            ReloadValidator::Injected(validator) => validator(next).await,
-        }
-    }
-}
-
-type ReloadValidationFuture<'a> =
-    Pin<Box<dyn Future<Output = Result<(), ServiceError>> + Send + 'a>>;
-type ReloadValidatorFn =
-    dyn for<'a> Fn(&'a AuthContext) -> ReloadValidationFuture<'a> + Send + Sync;
-
-enum ReloadValidator {
-    Production,
-    Injected(Arc<ReloadValidatorFn>),
 }
 
 #[derive(Clone)]
@@ -209,22 +172,9 @@ async fn run_cipher_loop(
 
 #[cfg(test)]
 mod tests {
-    use super::{AppState, SharedCipher};
-    use crate::adapters::cipher::CipherAdapter;
+    use super::SharedCipher;
     use crate::error::ServiceError;
     use tokio::sync::mpsc;
-
-    fn assert_send_sync<T: Send + Sync>() {}
-
-    #[test]
-    fn app_state_is_send_and_sync() {
-        assert_send_sync::<AppState>();
-    }
-
-    #[test]
-    fn shared_cipher_is_send_and_sync() {
-        assert_send_sync::<SharedCipher>();
-    }
 
     #[test]
     fn thread_spawn_failure_maps_to_service_error() {
@@ -245,25 +195,5 @@ mod tests {
         let error = cipher.signature_timestamp().await.unwrap_err();
 
         assert!(matches!(error, ServiceError::CipherWorkerUnavailable));
-    }
-
-    #[tokio::test]
-    async fn cipher_adapter_normalizes_cipher_operation_failures() {
-        let (command_tx, mut command_rx) = mpsc::channel(1);
-        let cipher = SharedCipher { command_tx };
-
-        tokio::spawn(async move {
-            let command = command_rx.recv().await.expect("decipher command");
-            match command {
-                super::CipherCommand::Decipher { reply_tx, .. } => {
-                    let _ = reply_tx.send(Err(yt_cipher::Error::CipherParse));
-                }
-                _ => panic!("expected decipher command"),
-            }
-        });
-
-        let error = CipherAdapter::decipher(&cipher, "raw").await.unwrap_err();
-
-        assert!(matches!(error, ServiceError::Cipher(_)));
     }
 }

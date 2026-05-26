@@ -16,6 +16,8 @@ pub enum ServiceError {
     InvalidSocketAddress(#[from] std::net::AddrParseError),
     #[error("failed to bind listener: {0}")]
     ListenerBind(#[source] std::io::Error),
+    #[error("failed to read listener local address: {0}")]
+    ListenerLocalAddr(#[source] std::io::Error),
     #[error("failed to load browser auth: {0}")]
     BrowserAuthLoad(#[source] ytmusicapi::Error),
     #[error("ytmusicapi request failed: {0}")]
@@ -38,6 +40,8 @@ pub enum ServiceError {
     Incoming(#[source] Box<dyn std::error::Error + Send + Sync>),
     #[error("transport failure: {0}")]
     Transport(#[source] tonic::transport::Error),
+    #[error("test server failed to signal readiness")]
+    TestServerReadySignal,
 }
 
 pub fn map_invalid_argument(message: impl Into<String>) -> tonic::Status {
@@ -61,6 +65,7 @@ pub fn map_service_error(error: &ServiceError) -> tonic::Status {
             tonic::Status::failed_precondition(source.to_string())
         }
         ServiceError::ListenerBind(source) => tonic::Status::unavailable(source.to_string()),
+        ServiceError::ListenerLocalAddr(source) => tonic::Status::unavailable(source.to_string()),
         ServiceError::BrowserAuthLoad(source) => map_ytmusic_error(source),
         ServiceError::YtMusic(source) => map_ytmusic_error(source),
         ServiceError::CipherWorkerThreadSpawn(source) => {
@@ -74,6 +79,7 @@ pub fn map_service_error(error: &ServiceError) -> tonic::Status {
         ServiceError::Reflection(source) => tonic::Status::internal(source.to_string()),
         ServiceError::Incoming(source) => tonic::Status::unavailable(source.to_string()),
         ServiceError::Transport(source) => tonic::Status::unavailable(source.to_string()),
+        ServiceError::TestServerReadySignal => tonic::Status::unavailable(error.to_string()),
     }
 }
 
