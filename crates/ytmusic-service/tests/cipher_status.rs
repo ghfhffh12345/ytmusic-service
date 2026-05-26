@@ -56,6 +56,24 @@ async fn test_harness_with_cipher_timestamp(
     .await?)
 }
 
+async fn test_harness_with_fixed_cipher_state(
+    signature_timestamp: u32,
+    playable_url: &str,
+) -> Result<ytmusic_service::TestHarness, Box<dyn std::error::Error>> {
+    let browser_json = test_browser_auth_file()?;
+    let config = ServiceConfig::from_parts("127.0.0.1:0", browser_json.path())?;
+    let music = ytmusicapi::YtMusic::builder()
+        .browser_auth_path(browser_json.into_temp_path().keep()?)
+        .build()?;
+
+    Ok(ytmusic_service::run_for_tests_with_parts(
+        config,
+        music,
+        SharedCipher::fixed_state_for_tests(signature_timestamp, playable_url),
+    )
+    .await?)
+}
+
 async fn test_harness_with_minimal_state()
 -> Result<ytmusic_service::TestHarness, Box<dyn std::error::Error>> {
     let browser_json = test_browser_auth_file()?;
@@ -83,7 +101,7 @@ async fn test_harness_with_broken_cipher()
     Ok(ytmusic_service::run_for_tests_with_parts(
         config,
         music,
-        SharedCipher::failing_refresh_for_tests(yt_cipher::Error::SignatureDecipherFailed),
+        SharedCipher::failing_refresh_once_for_tests(yt_cipher::Error::SignatureDecipherFailed),
     )
     .await?)
 }
@@ -99,6 +117,51 @@ async fn get_signature_timestamp_returns_current_value() -> Result<(), Box<dyn s
         .into_inner();
 
     assert_eq!(response.signature_timestamp, 20_577);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn refresh_succeeds_with_fixed_cipher_state() -> Result<(), Box<dyn std::error::Error>> {
+    let harness = test_harness_with_fixed_cipher_state(
+        20_577,
+        "https://example.test/videoplayback?sig=decoded",
+    )
+    .await?;
+    let mut client = cipher_client(&harness).await?;
+
+    client.refresh(pb::Empty {}).await?;
+
+    let timestamp = client
+        .get_signature_timestamp(pb::Empty {})
+        .await?
+        .into_inner();
+
+    assert_eq!(timestamp.signature_timestamp, 20_577);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn decipher_returns_fixed_playable_url() -> Result<(), Box<dyn std::error::Error>> {
+    let harness = test_harness_with_fixed_cipher_state(
+        20_577,
+        "https://example.test/videoplayback?sig=decoded",
+    )
+    .await?;
+    let mut client = cipher_client(&harness).await?;
+
+    let response = client
+        .decipher(pb::DecipherRequest {
+            signature_cipher: "s=obfuscated&sp=sig&url=https%3A%2F%2Fexample.test".to_owned(),
+        })
+        .await?
+        .into_inner();
+
+    assert_eq!(
+        response.playable_url,
+        "https://example.test/videoplayback?sig=decoded"
+    );
 
     Ok(())
 }

@@ -113,7 +113,32 @@ impl SharedCipher {
     }
 
     #[doc(hidden)]
-    pub fn failing_refresh_for_tests(error: yt_cipher::Error) -> Self {
+    pub fn fixed_state_for_tests(
+        signature_timestamp: u32,
+        playable_url: impl Into<String>,
+    ) -> Self {
+        let playable_url = playable_url.into();
+        let (command_tx, mut command_rx) = mpsc::channel(1);
+        tokio::spawn(async move {
+            while let Some(command) = command_rx.recv().await {
+                match command {
+                    CipherCommand::SignatureTimestamp { reply_tx } => {
+                        let _ = reply_tx.send(signature_timestamp);
+                    }
+                    CipherCommand::Refresh { reply_tx } => {
+                        let _ = reply_tx.send(Ok(()));
+                    }
+                    CipherCommand::Decipher { reply_tx, .. } => {
+                        let _ = reply_tx.send(Ok(playable_url.clone()));
+                    }
+                }
+            }
+        });
+        Self { command_tx }
+    }
+
+    #[doc(hidden)]
+    pub fn failing_refresh_once_for_tests(error: yt_cipher::Error) -> Self {
         let (command_tx, mut command_rx) = mpsc::channel(1);
         tokio::spawn(async move {
             while let Some(command) = command_rx.recv().await {
