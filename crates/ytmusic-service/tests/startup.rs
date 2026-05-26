@@ -107,15 +107,6 @@ async fn startup_serves_health_and_status_on_one_listener() -> Result<(), Box<dy
             .any(|name| name == "ytmusic.v2.YtCipher")
     );
 
-    let mut music =
-        ytmusic_service_proto::ytmusic::v2::yt_music_client::YtMusicClient::new(channel.clone());
-    let music_status = music
-        .get_library_playlists(ytmusic_service_proto::ytmusic::v2::Empty {})
-        .await
-        .unwrap_err();
-    assert_eq!(music_status.code(), Code::Unimplemented);
-    assert!(music_status.message().contains("not implemented yet"));
-
     let mut cipher =
         ytmusic_service_proto::ytmusic::v2::yt_cipher_client::YtCipherClient::new(channel);
     let cipher_status = cipher
