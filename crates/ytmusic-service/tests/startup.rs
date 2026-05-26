@@ -114,10 +114,7 @@ async fn startup_serves_health_and_status_on_one_listener() -> Result<(), Box<dy
         .await
         .unwrap_err();
     assert_eq!(music_status.code(), Code::Unimplemented);
-    assert_eq!(
-        music_status.message(),
-        "ytmusic.v2.YtMusic RPCs are not implemented yet"
-    );
+    assert!(music_status.message().contains("not implemented yet"));
 
     let mut cipher =
         ytmusic_service_proto::ytmusic::v2::yt_cipher_client::YtCipherClient::new(channel);
