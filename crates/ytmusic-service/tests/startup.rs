@@ -113,10 +113,14 @@ async fn startup_serves_health_and_status_on_one_listener() -> Result<(), Box<dy
         .get_signature_timestamp(ytmusic_service_proto::ytmusic::v2::Empty {})
         .await
         .unwrap_err();
-    assert_eq!(cipher_status.code(), Code::Unimplemented);
+    assert_eq!(cipher_status.code(), Code::Unavailable);
+    assert_eq!(cipher_status.message(), "cipher worker is unavailable");
     assert_eq!(
-        cipher_status.message(),
-        "ytmusic.v2.YtCipher RPCs are not implemented yet"
+        cipher_status
+            .metadata()
+            .get("ytmusic-service-subsystem")
+            .unwrap(),
+        "cipher"
     );
 
     Ok(())

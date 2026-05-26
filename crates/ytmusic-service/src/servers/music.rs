@@ -15,7 +15,7 @@ impl YtMusic for MusicService {
     ) -> Result<Response<pb::SearchResponse>, Status> {
         let query = search_request_to_query(request.into_inner())?;
         let page = self.state.music.search(query).await.map_err(|source| {
-            crate::error::map_service_error(&crate::error::ServiceError::YtMusic(source))
+            crate::error::map_service_error("ytmusic", &crate::error::ServiceError::YtMusic(source))
         })?;
         Ok(Response::new(
             crate::servers::music_mapping::search_page_to_proto(page),
@@ -37,7 +37,10 @@ impl YtMusic for MusicService {
             .search_continuation(token)
             .await
             .map_err(|source| {
-                crate::error::map_service_error(&crate::error::ServiceError::YtMusic(source))
+                crate::error::map_service_error(
+                    "ytmusic",
+                    &crate::error::ServiceError::YtMusic(source),
+                )
             })?;
         Ok(Response::new(
             crate::servers::music_mapping::search_page_to_proto(page),
@@ -55,7 +58,10 @@ impl YtMusic for MusicService {
             .get_watch_playlist(query)
             .await
             .map_err(|source| {
-                crate::error::map_service_error(&crate::error::ServiceError::YtMusic(source))
+                crate::error::map_service_error(
+                    "ytmusic",
+                    &crate::error::ServiceError::YtMusic(source),
+                )
             })?;
         Ok(Response::new(
             crate::servers::music_mapping::watch_page_to_proto(page),
@@ -77,7 +83,10 @@ impl YtMusic for MusicService {
             .get_watch_playlist_continuation(token)
             .await
             .map_err(|source| {
-                crate::error::map_service_error(&crate::error::ServiceError::YtMusic(source))
+                crate::error::map_service_error(
+                    "ytmusic",
+                    &crate::error::ServiceError::YtMusic(source),
+                )
             })?;
         Ok(Response::new(
             crate::servers::music_mapping::watch_page_to_proto(page),
@@ -95,14 +104,17 @@ impl YtMusic for MusicService {
             .cipher
             .signature_timestamp()
             .await
-            .map_err(|source| crate::error::map_service_error(&source))?;
+            .map_err(|source| crate::error::map_service_error("cipher", &source))?;
         let song = self
             .state
             .music
             .get_song(video_id, signature_timestamp)
             .await
             .map_err(|source| {
-                crate::error::map_service_error(&crate::error::ServiceError::YtMusic(source))
+                crate::error::map_service_error(
+                    "ytmusic",
+                    &crate::error::ServiceError::YtMusic(source),
+                )
             })?;
         Ok(Response::new(
             crate::servers::music_mapping::song_response_to_proto(song),
@@ -119,7 +131,10 @@ impl YtMusic for MusicService {
             .get_library_playlists()
             .await
             .map_err(|source| {
-                crate::error::map_service_error(&crate::error::ServiceError::YtMusic(source))
+                crate::error::map_service_error(
+                    "ytmusic",
+                    &crate::error::ServiceError::YtMusic(source),
+                )
             })?;
         Ok(Response::new(
             crate::servers::music_mapping::library_playlists_page_to_proto(page),
@@ -141,7 +156,10 @@ impl YtMusic for MusicService {
             .get_library_playlists_continuation(token)
             .await
             .map_err(|source| {
-                crate::error::map_service_error(&crate::error::ServiceError::YtMusic(source))
+                crate::error::map_service_error(
+                    "ytmusic",
+                    &crate::error::ServiceError::YtMusic(source),
+                )
             })?;
         Ok(Response::new(
             crate::servers::music_mapping::library_playlists_page_to_proto(page),
@@ -158,7 +176,10 @@ impl YtMusic for MusicService {
             .get_account_info()
             .await
             .map_err(|source| {
-                crate::error::map_service_error(&crate::error::ServiceError::YtMusic(source))
+                crate::error::map_service_error(
+                    "ytmusic",
+                    &crate::error::ServiceError::YtMusic(source),
+                )
             })?;
         Ok(Response::new(
             crate::servers::music_mapping::account_info_to_proto(account_info),
@@ -175,7 +196,10 @@ impl YtMusic for MusicService {
             .get_library_artists()
             .await
             .map_err(|source| {
-                crate::error::map_service_error(&crate::error::ServiceError::YtMusic(source))
+                crate::error::map_service_error(
+                    "ytmusic",
+                    &crate::error::ServiceError::YtMusic(source),
+                )
             })?;
         Ok(Response::new(
             crate::servers::music_mapping::library_artists_page_to_proto(page),
@@ -197,7 +221,10 @@ impl YtMusic for MusicService {
             .get_library_artists_continuation(token)
             .await
             .map_err(|source| {
-                crate::error::map_service_error(&crate::error::ServiceError::YtMusic(source))
+                crate::error::map_service_error(
+                    "ytmusic",
+                    &crate::error::ServiceError::YtMusic(source),
+                )
             })?;
         Ok(Response::new(
             crate::servers::music_mapping::library_artists_page_to_proto(page),
@@ -214,7 +241,10 @@ impl YtMusic for MusicService {
             .get_library_albums()
             .await
             .map_err(|source| {
-                crate::error::map_service_error(&crate::error::ServiceError::YtMusic(source))
+                crate::error::map_service_error(
+                    "ytmusic",
+                    &crate::error::ServiceError::YtMusic(source),
+                )
             })?;
         Ok(Response::new(
             crate::servers::music_mapping::library_albums_page_to_proto(page),
@@ -236,7 +266,10 @@ impl YtMusic for MusicService {
             .get_library_albums_continuation(token)
             .await
             .map_err(|source| {
-                crate::error::map_service_error(&crate::error::ServiceError::YtMusic(source))
+                crate::error::map_service_error(
+                    "ytmusic",
+                    &crate::error::ServiceError::YtMusic(source),
+                )
             })?;
         Ok(Response::new(
             crate::servers::music_mapping::library_albums_page_to_proto(page),
@@ -253,7 +286,10 @@ impl YtMusic for MusicService {
             .get_library_subscriptions()
             .await
             .map_err(|source| {
-                crate::error::map_service_error(&crate::error::ServiceError::YtMusic(source))
+                crate::error::map_service_error(
+                    "ytmusic",
+                    &crate::error::ServiceError::YtMusic(source),
+                )
             })?;
         Ok(Response::new(
             crate::servers::music_mapping::library_subscriptions_page_to_proto(page),
@@ -275,7 +311,10 @@ impl YtMusic for MusicService {
             .get_library_subscriptions_continuation(token)
             .await
             .map_err(|source| {
-                crate::error::map_service_error(&crate::error::ServiceError::YtMusic(source))
+                crate::error::map_service_error(
+                    "ytmusic",
+                    &crate::error::ServiceError::YtMusic(source),
+                )
             })?;
         Ok(Response::new(
             crate::servers::music_mapping::library_subscriptions_page_to_proto(page),
@@ -292,7 +331,10 @@ impl YtMusic for MusicService {
             .get_library_channels()
             .await
             .map_err(|source| {
-                crate::error::map_service_error(&crate::error::ServiceError::YtMusic(source))
+                crate::error::map_service_error(
+                    "ytmusic",
+                    &crate::error::ServiceError::YtMusic(source),
+                )
             })?;
         Ok(Response::new(
             crate::servers::music_mapping::library_channels_page_to_proto(page),
@@ -314,7 +356,10 @@ impl YtMusic for MusicService {
             .get_library_channels_continuation(token)
             .await
             .map_err(|source| {
-                crate::error::map_service_error(&crate::error::ServiceError::YtMusic(source))
+                crate::error::map_service_error(
+                    "ytmusic",
+                    &crate::error::ServiceError::YtMusic(source),
+                )
             })?;
         Ok(Response::new(
             crate::servers::music_mapping::library_channels_page_to_proto(page),
@@ -331,7 +376,10 @@ impl YtMusic for MusicService {
             .get_library_podcasts()
             .await
             .map_err(|source| {
-                crate::error::map_service_error(&crate::error::ServiceError::YtMusic(source))
+                crate::error::map_service_error(
+                    "ytmusic",
+                    &crate::error::ServiceError::YtMusic(source),
+                )
             })?;
         Ok(Response::new(
             crate::servers::music_mapping::library_podcasts_page_to_proto(page),
@@ -353,7 +401,10 @@ impl YtMusic for MusicService {
             .get_library_podcasts_continuation(token)
             .await
             .map_err(|source| {
-                crate::error::map_service_error(&crate::error::ServiceError::YtMusic(source))
+                crate::error::map_service_error(
+                    "ytmusic",
+                    &crate::error::ServiceError::YtMusic(source),
+                )
             })?;
         Ok(Response::new(
             crate::servers::music_mapping::library_podcasts_page_to_proto(page),
@@ -370,7 +421,10 @@ impl YtMusic for MusicService {
             .get_library_songs()
             .await
             .map_err(|source| {
-                crate::error::map_service_error(&crate::error::ServiceError::YtMusic(source))
+                crate::error::map_service_error(
+                    "ytmusic",
+                    &crate::error::ServiceError::YtMusic(source),
+                )
             })?;
         Ok(Response::new(
             crate::servers::music_mapping::library_songs_page_to_proto(page),
@@ -392,7 +446,10 @@ impl YtMusic for MusicService {
             .get_library_songs_continuation(token)
             .await
             .map_err(|source| {
-                crate::error::map_service_error(&crate::error::ServiceError::YtMusic(source))
+                crate::error::map_service_error(
+                    "ytmusic",
+                    &crate::error::ServiceError::YtMusic(source),
+                )
             })?;
         Ok(Response::new(
             crate::servers::music_mapping::library_songs_page_to_proto(page),
@@ -404,7 +461,7 @@ impl YtMusic for MusicService {
         _request: Request<pb::Empty>,
     ) -> Result<Response<pb::LikedSongsResponse>, Status> {
         let page = self.state.music.get_liked_songs().await.map_err(|source| {
-            crate::error::map_service_error(&crate::error::ServiceError::YtMusic(source))
+            crate::error::map_service_error("ytmusic", &crate::error::ServiceError::YtMusic(source))
         })?;
         Ok(Response::new(
             crate::servers::music_mapping::liked_songs_page_to_proto(page),
@@ -426,7 +483,10 @@ impl YtMusic for MusicService {
             .get_liked_songs_continuation(token)
             .await
             .map_err(|source| {
-                crate::error::map_service_error(&crate::error::ServiceError::YtMusic(source))
+                crate::error::map_service_error(
+                    "ytmusic",
+                    &crate::error::ServiceError::YtMusic(source),
+                )
             })?;
         Ok(Response::new(
             crate::servers::music_mapping::liked_songs_page_to_proto(page),
@@ -443,7 +503,10 @@ impl YtMusic for MusicService {
             .get_saved_episodes()
             .await
             .map_err(|source| {
-                crate::error::map_service_error(&crate::error::ServiceError::YtMusic(source))
+                crate::error::map_service_error(
+                    "ytmusic",
+                    &crate::error::ServiceError::YtMusic(source),
+                )
             })?;
         Ok(Response::new(
             crate::servers::music_mapping::saved_episodes_page_to_proto(page),
@@ -465,7 +528,10 @@ impl YtMusic for MusicService {
             .get_saved_episodes_continuation(token)
             .await
             .map_err(|source| {
-                crate::error::map_service_error(&crate::error::ServiceError::YtMusic(source))
+                crate::error::map_service_error(
+                    "ytmusic",
+                    &crate::error::ServiceError::YtMusic(source),
+                )
             })?;
         Ok(Response::new(
             crate::servers::music_mapping::saved_episodes_page_to_proto(page),
@@ -496,9 +562,10 @@ fn search_request_to_query(request: pb::SearchRequest) -> Result<ytmusicapi::Sea
                 query = query.with_filter(ytmusicapi::SearchFilter::Playlists);
             }
             Err(_) => {
-                return Err(crate::error::map_invalid_argument(format!(
-                    "unknown search filter value: {filter}"
-                )));
+                return Err(crate::error::map_invalid_argument(
+                    "ytmusic",
+                    format!("unknown search filter value: {filter}"),
+                ));
             }
         }
     }
@@ -518,18 +585,21 @@ fn watch_playlist_request_to_query(
 
     if video_id.is_none() && playlist_id.is_none() {
         return Err(crate::error::map_invalid_argument(
+            "ytmusic",
             "watch playlist query requires video_id or playlist_id",
         ));
     }
 
     if request.shuffle && playlist_id.is_none() {
         return Err(crate::error::map_invalid_argument(
+            "ytmusic",
             "watch playlist shuffle requires playlist_id",
         ));
     }
 
     if request.radio && request.shuffle {
         return Err(crate::error::map_invalid_argument(
+            "ytmusic",
             "watch playlist shuffle cannot be combined with radio",
         ));
     }
@@ -553,7 +623,7 @@ fn watch_playlist_request_to_query(
 
 fn required_non_empty(value: String, message: &'static str) -> Result<String, Status> {
     if value.trim().is_empty() {
-        return Err(crate::error::map_invalid_argument(message));
+        return Err(crate::error::map_invalid_argument("ytmusic", message));
     }
 
     Ok(value)
@@ -564,7 +634,9 @@ fn optional_non_empty(
     message: &'static str,
 ) -> Result<Option<String>, Status> {
     match value {
-        Some(value) if value.trim().is_empty() => Err(crate::error::map_invalid_argument(message)),
+        Some(value) if value.trim().is_empty() => {
+            Err(crate::error::map_invalid_argument("ytmusic", message))
+        }
         other => Ok(other),
     }
 }

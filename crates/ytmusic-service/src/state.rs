@@ -112,6 +112,28 @@ impl SharedCipher {
         Self { command_tx }
     }
 
+    #[doc(hidden)]
+    pub fn failing_refresh_for_tests(error: yt_cipher::Error) -> Self {
+        let (command_tx, mut command_rx) = mpsc::channel(1);
+        tokio::spawn(async move {
+            while let Some(command) = command_rx.recv().await {
+                match command {
+                    CipherCommand::SignatureTimestamp { reply_tx } => {
+                        let _ = reply_tx.send(20_577);
+                    }
+                    CipherCommand::Refresh { reply_tx } => {
+                        let _ = reply_tx.send(Err(error));
+                        break;
+                    }
+                    CipherCommand::Decipher { raw, reply_tx } => {
+                        let _ = reply_tx.send(Ok(raw));
+                    }
+                }
+            }
+        });
+        Self { command_tx }
+    }
+
     pub async fn signature_timestamp(&self) -> Result<u32, ServiceError> {
         let (reply_tx, reply_rx) = oneshot::channel();
         self.command_tx

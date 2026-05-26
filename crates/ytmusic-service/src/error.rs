@@ -1,5 +1,7 @@
 use reqwest::StatusCode;
 
+const SUBSYSTEM_METADATA_KEY: &str = "ytmusic-service-subsystem";
+
 #[derive(Debug, thiserror::Error)]
 pub enum ServiceError {
     #[error("missing or invalid environment variable {name}: {source}")]
@@ -50,101 +52,169 @@ pub enum ServiceError {
     TestServerReadySignal,
 }
 
-pub fn map_invalid_argument(message: impl Into<String>) -> tonic::Status {
-    tonic::Status::invalid_argument(message.into())
+pub fn map_invalid_argument(subsystem: &str, message: impl Into<String>) -> tonic::Status {
+    status_with_subsystem(subsystem, tonic::Code::InvalidArgument, message)
 }
 
-pub fn map_service_error(error: &ServiceError) -> tonic::Status {
+pub fn map_service_error(subsystem: &str, error: &ServiceError) -> tonic::Status {
     match error {
-        ServiceError::EnvVar { source, .. } => {
-            tonic::Status::failed_precondition(source.to_string())
+        ServiceError::EnvVar { source, .. } => status_with_subsystem(
+            subsystem,
+            tonic::Code::FailedPrecondition,
+            source.to_string(),
+        ),
+        ServiceError::BrowserAuthPathMissing(path) => status_with_subsystem(
+            subsystem,
+            tonic::Code::FailedPrecondition,
+            format!("browser auth file missing: {}", path.display()),
+        ),
+        ServiceError::BrowserAuthPathNotFile(path) => status_with_subsystem(
+            subsystem,
+            tonic::Code::FailedPrecondition,
+            format!("browser auth path is not a file: {}", path.display()),
+        ),
+        ServiceError::InvalidSocketAddress(source) => status_with_subsystem(
+            subsystem,
+            tonic::Code::FailedPrecondition,
+            source.to_string(),
+        ),
+        ServiceError::InvalidRpcTimeoutMs { source, .. } => status_with_subsystem(
+            subsystem,
+            tonic::Code::FailedPrecondition,
+            source.to_string(),
+        ),
+        ServiceError::ListenerBind(source) => {
+            status_with_subsystem(subsystem, tonic::Code::Unavailable, source.to_string())
         }
-        ServiceError::BrowserAuthPathMissing(path) => tonic::Status::failed_precondition(format!(
-            "browser auth file missing: {}",
-            path.display()
-        )),
-        ServiceError::BrowserAuthPathNotFile(path) => tonic::Status::failed_precondition(format!(
-            "browser auth path is not a file: {}",
-            path.display()
-        )),
-        ServiceError::InvalidSocketAddress(source) => {
-            tonic::Status::failed_precondition(source.to_string())
+        ServiceError::ListenerLocalAddr(source) => {
+            status_with_subsystem(subsystem, tonic::Code::Unavailable, source.to_string())
         }
-        ServiceError::InvalidRpcTimeoutMs { source, .. } => {
-            tonic::Status::failed_precondition(source.to_string())
-        }
-        ServiceError::ListenerBind(source) => tonic::Status::unavailable(source.to_string()),
-        ServiceError::ListenerLocalAddr(source) => tonic::Status::unavailable(source.to_string()),
-        ServiceError::BrowserAuthLoad(source) => map_ytmusic_error(source),
-        ServiceError::YtMusic(source) => map_ytmusic_error(source),
+        ServiceError::BrowserAuthLoad(source) => map_ytmusic_error(subsystem, source),
+        ServiceError::YtMusic(source) => map_ytmusic_error(subsystem, source),
         ServiceError::CipherWorkerThreadSpawn(source) => {
-            tonic::Status::unavailable(source.to_string())
+            status_with_subsystem(subsystem, tonic::Code::Unavailable, source.to_string())
         }
-        ServiceError::CipherWorkerRuntime(source) => tonic::Status::unavailable(source.to_string()),
-        ServiceError::CipherWorkerInit(source) => map_cipher_error(source),
-        ServiceError::Cipher(source) => map_cipher_error(source),
-        ServiceError::CipherWorkerUnavailable => tonic::Status::unavailable(error.to_string()),
-        ServiceError::CipherOperation(source) => map_cipher_error(source),
-        ServiceError::Reflection(source) => tonic::Status::internal(source.to_string()),
-        ServiceError::Incoming(source) => tonic::Status::unavailable(source.to_string()),
-        ServiceError::Transport(source) => tonic::Status::unavailable(source.to_string()),
-        ServiceError::TestServerReadySignal => tonic::Status::unavailable(error.to_string()),
+        ServiceError::CipherWorkerRuntime(source) => {
+            status_with_subsystem(subsystem, tonic::Code::Unavailable, source.to_string())
+        }
+        ServiceError::CipherWorkerInit(source) => map_cipher_error(subsystem, source),
+        ServiceError::Cipher(source) => map_cipher_error(subsystem, source),
+        ServiceError::CipherWorkerUnavailable => {
+            status_with_subsystem(subsystem, tonic::Code::Unavailable, error.to_string())
+        }
+        ServiceError::CipherOperation(source) => map_cipher_error(subsystem, source),
+        ServiceError::Reflection(source) => {
+            status_with_subsystem(subsystem, tonic::Code::Internal, source.to_string())
+        }
+        ServiceError::Incoming(source) => {
+            status_with_subsystem(subsystem, tonic::Code::Unavailable, source.to_string())
+        }
+        ServiceError::Transport(source) => {
+            status_with_subsystem(subsystem, tonic::Code::Unavailable, source.to_string())
+        }
+        ServiceError::TestServerReadySignal => {
+            status_with_subsystem(subsystem, tonic::Code::Unavailable, error.to_string())
+        }
     }
 }
 
-fn map_ytmusic_error(error: &ytmusicapi::Error) -> tonic::Status {
+fn map_ytmusic_error(subsystem: &str, error: &ytmusicapi::Error) -> tonic::Status {
     match error {
         ytmusicapi::Error::InvalidInput(message) => {
-            tonic::Status::invalid_argument(message.clone())
+            status_with_subsystem(subsystem, tonic::Code::InvalidArgument, message.clone())
         }
         ytmusicapi::Error::AuthValidation(message) => {
-            tonic::Status::failed_precondition(message.clone())
+            status_with_subsystem(subsystem, tonic::Code::FailedPrecondition, message.clone())
         }
-        ytmusicapi::Error::AuthFileRead { source, .. } => {
-            tonic::Status::failed_precondition(source.to_string())
+        ytmusicapi::Error::AuthFileRead { source, .. } => status_with_subsystem(
+            subsystem,
+            tonic::Code::FailedPrecondition,
+            source.to_string(),
+        ),
+        ytmusicapi::Error::AuthFileDecode { source, .. } => status_with_subsystem(
+            subsystem,
+            tonic::Code::FailedPrecondition,
+            source.to_string(),
+        ),
+        ytmusicapi::Error::HttpClientBuild(source) => {
+            status_with_subsystem(subsystem, tonic::Code::Internal, source.to_string())
         }
-        ytmusicapi::Error::AuthFileDecode { source, .. } => {
-            tonic::Status::failed_precondition(source.to_string())
+        ytmusicapi::Error::HttpTransport(source) => {
+            status_with_subsystem(subsystem, tonic::Code::Unavailable, source.to_string())
         }
-        ytmusicapi::Error::HttpClientBuild(source) => tonic::Status::internal(source.to_string()),
-        ytmusicapi::Error::HttpTransport(source) => tonic::Status::unavailable(source.to_string()),
-        ytmusicapi::Error::HttpStatus { status, message } => map_http_status(*status, message),
-        ytmusicapi::Error::JsonDecode(source) => tonic::Status::internal(source.to_string()),
-        ytmusicapi::Error::MissingVisitorId => tonic::Status::unavailable(error.to_string()),
-        ytmusicapi::Error::MissingBootstrapField(field) => tonic::Status::unavailable(format!(
-            "failed to bootstrap anonymous client config: missing {field}"
-        )),
-        ytmusicapi::Error::Parse(message) => tonic::Status::internal(message.clone()),
+        ytmusicapi::Error::HttpStatus { status, message } => {
+            map_http_status(subsystem, *status, message)
+        }
+        ytmusicapi::Error::JsonDecode(source) => {
+            status_with_subsystem(subsystem, tonic::Code::Internal, source.to_string())
+        }
+        ytmusicapi::Error::MissingVisitorId => {
+            status_with_subsystem(subsystem, tonic::Code::Unavailable, error.to_string())
+        }
+        ytmusicapi::Error::MissingBootstrapField(field) => status_with_subsystem(
+            subsystem,
+            tonic::Code::Unavailable,
+            format!("failed to bootstrap anonymous client config: missing {field}"),
+        ),
+        ytmusicapi::Error::Parse(message) => {
+            status_with_subsystem(subsystem, tonic::Code::Internal, message.clone())
+        }
         ytmusicapi::Error::UnsupportedFeature(message) => {
-            tonic::Status::unimplemented(message.clone())
+            status_with_subsystem(subsystem, tonic::Code::Unimplemented, message.clone())
         }
     }
 }
 
-fn map_cipher_error(error: &yt_cipher::Error) -> tonic::Status {
+fn map_cipher_error(subsystem: &str, error: &yt_cipher::Error) -> tonic::Status {
     match error {
-        yt_cipher::Error::CipherParse => tonic::Status::invalid_argument(error.to_string()),
+        yt_cipher::Error::CipherParse => {
+            status_with_subsystem(subsystem, tonic::Code::InvalidArgument, error.to_string())
+        }
         yt_cipher::Error::NTransformUnavailable | yt_cipher::Error::SignatureSolverUnavailable => {
-            tonic::Status::unimplemented(error.to_string())
+            status_with_subsystem(subsystem, tonic::Code::Unimplemented, error.to_string())
         }
         yt_cipher::Error::HomepageFetch(_)
         | yt_cipher::Error::PlayerFetch(_)
         | yt_cipher::Error::QuickJsRuntimeInitFailed => {
-            tonic::Status::unavailable(error.to_string())
+            status_with_subsystem(subsystem, tonic::Code::Unavailable, error.to_string())
         }
-        _ => tonic::Status::internal(error.to_string()),
+        _ => status_with_subsystem(subsystem, tonic::Code::Internal, error.to_string()),
     }
 }
 
-fn map_http_status(status: StatusCode, message: &str) -> tonic::Status {
+fn map_http_status(subsystem: &str, status: StatusCode, message: &str) -> tonic::Status {
     match status {
-        StatusCode::BAD_REQUEST => tonic::Status::invalid_argument(message.to_owned()),
-        StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN => {
-            tonic::Status::failed_precondition(message.to_owned())
+        StatusCode::BAD_REQUEST => {
+            status_with_subsystem(subsystem, tonic::Code::InvalidArgument, message.to_owned())
         }
-        StatusCode::NOT_FOUND => tonic::Status::not_found(message.to_owned()),
-        StatusCode::TOO_MANY_REQUESTS => tonic::Status::resource_exhausted(message.to_owned()),
-        _ if status.is_server_error() => tonic::Status::unavailable(message.to_owned()),
-        _ => tonic::Status::unknown(message.to_owned()),
+        StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN => status_with_subsystem(
+            subsystem,
+            tonic::Code::FailedPrecondition,
+            message.to_owned(),
+        ),
+        StatusCode::NOT_FOUND => {
+            status_with_subsystem(subsystem, tonic::Code::NotFound, message.to_owned())
+        }
+        StatusCode::TOO_MANY_REQUESTS => status_with_subsystem(
+            subsystem,
+            tonic::Code::ResourceExhausted,
+            message.to_owned(),
+        ),
+        _ if status.is_server_error() => {
+            status_with_subsystem(subsystem, tonic::Code::Unavailable, message.to_owned())
+        }
+        _ => status_with_subsystem(subsystem, tonic::Code::Unknown, message.to_owned()),
     }
+}
+
+fn status_with_subsystem(
+    subsystem: &str,
+    code: tonic::Code,
+    message: impl Into<String>,
+) -> tonic::Status {
+    let mut status = tonic::Status::new(code, message.into());
+    if let Ok(value) = subsystem.parse() {
+        status.metadata_mut().insert(SUBSYSTEM_METADATA_KEY, value);
+    }
+    status
 }
