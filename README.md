@@ -1,15 +1,21 @@
 # ytmusic-service
 
-`ytmusic-service` is a gRPC service layer that provides various YouTube Music features through separate public and admin listeners.
+`ytmusic-service` is a single-listener gRPC service for authenticated YouTube Music access.
 
 ## What it provides
 
-- Public gRPC API on `YTMUSIC_SERVICE_PUBLIC_ADDR` for `ytmusic.v1.YtMusicPublic`
-- Separate admin gRPC API on `YTMUSIC_SERVICE_ADMIN_ADDR` for `ytmusic.v1.admin.YtMusicAdmin`
-- Standard gRPC health checks on both listeners
-- gRPC reflection on the admin listener for `grpcurl list` and `grpcurl describe`
+- One gRPC listener on `YTMUSIC_SERVICE_ADDR`
+- Browser-authenticated startup from `YTMUSIC_SERVICE_BROWSER_JSON`
+- Optional per-RPC timeout from `YTMUSIC_SERVICE_RPC_TIMEOUT_MS`
+- Reflected and health-checked v2 service surface on the same port
 
-Use the admin port for reflection and admin RPCs. Use the public port for music RPCs.
+The exposed services are:
+
+- `ytmusic.v2.YtMusic`
+- `ytmusic.v2.YtCipher`
+- `ytmusic.v2.ServiceStatus`
+- `grpc.health.v1.Health`
+- gRPC reflection
 
 ## Before you start
 
@@ -21,17 +27,15 @@ You will need:
 
 Generate `browser.json` by following the guide in [`ghfhffh12345/ytmusicapi`](https://github.com/ghfhffh12345/ytmusicapi#generate-browserjson-with-ytmusicapi-cli). Treat it as a secret.
 
-The service loads browser authentication from `YTMUSIC_SERVICE_BROWSER_JSON` at startup. Replacing the file on disk does not activate new credentials until `ReloadBrowserAuth` succeeds.
+Startup fails if the configured `browser.json` path is missing, is not a regular file, contains malformed JSON, contains unusable auth data, or fails the startup auth probe.
 
 ## Configuration
 
 | Variable | Purpose | Example |
 | --- | --- | --- |
-| `YTMUSIC_SERVICE_PUBLIC_ADDR` | Bind address for the public gRPC listener and its health checks | `127.0.0.1:50051` |
-| `YTMUSIC_SERVICE_ADMIN_ADDR` | Bind address for the admin gRPC listener, admin health checks, and reflection | `127.0.0.1:50052` |
+| `YTMUSIC_SERVICE_ADDR` | Bind address for all gRPC traffic, health checks, and reflection | `127.0.0.1:50051` |
 | `YTMUSIC_SERVICE_BROWSER_JSON` | Filesystem path to the `browser.json` credentials file | `/absolute/path/to/browser.json` |
-
-Startup fails if the configured `browser.json` path is missing, is not a regular file, contains malformed JSON, contains unusable auth data, or fails the startup auth probe.
+| `YTMUSIC_SERVICE_RPC_TIMEOUT_MS` | Optional server-side timeout applied to each RPC | `15000` |
 
 ## Run with Docker
 
@@ -40,9 +44,7 @@ If you already have Docker and a valid `browser.json`, this is the fastest way t
 ```bash
 docker run --rm \
   -p 50051:50051 \
-  -p 50052:50052 \
-  -e YTMUSIC_SERVICE_PUBLIC_ADDR=0.0.0.0:50051 \
-  -e YTMUSIC_SERVICE_ADMIN_ADDR=0.0.0.0:50052 \
+  -e YTMUSIC_SERVICE_ADDR=0.0.0.0:50051 \
   -e YTMUSIC_SERVICE_BROWSER_JSON=/run/secrets/browser.json \
   -v "$PWD/browser.json:/run/secrets/browser.json:ro" \
   ghcr.io/ghfhffh12345/ytmusic-service:latest
@@ -50,7 +52,7 @@ docker run --rm \
 
 ## Publish images
 
-GitHub Actions publishes container releases automatically on GitHub-hosted runners when you push an exact `vX.Y.Z` Git tag:
+GitHub Actions publishes container releases automatically on GitHub-hosted runners when you push an exact `vX.Y.Z` Git tag. The release workflow now requires the ignored live smoke test to pass before image publication starts.
 
 ```bash
 git tag v0.1.1
@@ -79,9 +81,9 @@ Use this path if you want to run the service from this repository instead of the
 git clone https://github.com/ghfhffh12345/ytmusic-service.git
 cd ytmusic-service
 
-export YTMUSIC_SERVICE_PUBLIC_ADDR=127.0.0.1:50051
-export YTMUSIC_SERVICE_ADMIN_ADDR=127.0.0.1:50052
+export YTMUSIC_SERVICE_ADDR=127.0.0.1:50051
 export YTMUSIC_SERVICE_BROWSER_JSON="$PWD/browser.json"
+# export YTMUSIC_SERVICE_RPC_TIMEOUT_MS=15000
 
 cargo run -p ytmusic-service
 ```
@@ -94,64 +96,61 @@ Rust callers who want the generated gRPC contract directly should depend on `ytm
 
 ## Verify and use the service
 
-List reflected services on the admin listener:
+List reflected services on the service listener:
 
 ```bash
-grpcurl -plaintext 127.0.0.1:50052 list
+grpcurl -plaintext 127.0.0.1:50051 list
 ```
 
-Describe the public API service from the admin listener:
+Describe the music API:
 
 ```bash
-grpcurl -plaintext 127.0.0.1:50052 describe ytmusic.v1.YtMusicPublic
+grpcurl -plaintext 127.0.0.1:50051 describe ytmusic.v2.YtMusic
 ```
 
-Check the public service health on the public listener:
+Check service health:
 
 ```bash
 grpcurl -plaintext \
-  -d '{"service":"ytmusic.v1.YtMusicPublic"}' \
+  -d '{"service":"ytmusic.v2.YtMusic"}' \
   127.0.0.1:50051 \
   grpc.health.v1.Health/Check
 ```
 
-Send a representative search request to the public listener:
+Send a representative search request:
 
 ```bash
 grpcurl -plaintext \
-  -d '{"query":"Miles Davis","ignoreSpelling":false}' \
+  -d '{"query":"Miles Davis","filter":"SEARCH_FILTER_SONGS","ignoreSpelling":false}' \
   127.0.0.1:50051 \
-  ytmusic.v1.YtMusicPublic/Search
+  ytmusic.v2.YtMusic/Search
 ```
 
-Reload browser credentials through the admin listener:
+Inspect service status:
 
 ```bash
 grpcurl -plaintext \
   -d '{}' \
-  127.0.0.1:50052 \
-  ytmusic.v1.admin.YtMusicAdmin/ReloadBrowserAuth
+  127.0.0.1:50051 \
+  ytmusic.v2.ServiceStatus/GetStatus
 ```
 
 ## Rotate browser credentials
 
-1. Generate or replace `browser.json` by following the guide in [`ghfhffh12345/ytmusicapi`](https://github.com/ghfhffh12345/ytmusicapi#generate-browserjson-with-ytmusicapi-cli).
-2. Confirm the service process can read the configured `YTMUSIC_SERVICE_BROWSER_JSON` path and that the path still resolves to a regular file.
-3. Call `ReloadBrowserAuth` on the admin listener.
-4. Wait for the reload RPC to succeed before treating the new credentials as active.
+The service loads `browser.json` at startup. To rotate credentials, replace the file and restart the process with the same `YTMUSIC_SERVICE_BROWSER_JSON` path.
 
 ## Troubleshooting
 
 - Missing `browser.json`: startup fails if `YTMUSIC_SERVICE_BROWSER_JSON` points to a path that does not exist.
 - `browser.json` path is a directory: startup fails if the configured path is not a regular file.
-- Malformed `browser.json` or failed startup probe: regenerate the file using the [`ytmusicapi` guide](https://github.com/ghfhffh12345/ytmusicapi#generate-browserjson-with-ytmusicapi-cli), replace the configured file, and retry startup or call reload again.
-- Address already in use: free the port or choose different values for `YTMUSIC_SERVICE_PUBLIC_ADDR` and `YTMUSIC_SERVICE_ADMIN_ADDR`.
-- `grpcurl list` fails on the public port: reflection is only registered on the admin port, so use `127.0.0.1:50052`.
-- Credential file replaced without reload: the running process keeps using the previous in-memory auth context until `ReloadBrowserAuth` succeeds.
+- Malformed `browser.json` or failed startup probe: regenerate the file using the [`ytmusicapi` guide](https://github.com/ghfhffh12345/ytmusicapi#generate-browserjson-with-ytmusicapi-cli), replace the configured file, and restart the service.
+- Address already in use: free the port or choose a different `YTMUSIC_SERVICE_ADDR`.
+- `grpcurl list` fails: reflection is served on the same listener as the gRPC APIs, so target `127.0.0.1:50051`.
 
 ## Further reference
 
 - [docs/API.md](docs/API.md)
-- [crates/ytmusic-service-proto/proto/ytmusic/v1/public.proto](crates/ytmusic-service-proto/proto/ytmusic/v1/public.proto)
-- [crates/ytmusic-service-proto/proto/ytmusic/v1/admin.proto](crates/ytmusic-service-proto/proto/ytmusic/v1/admin.proto)
+- [crates/ytmusic-service-proto/proto/ytmusic/v2/music.proto](crates/ytmusic-service-proto/proto/ytmusic/v2/music.proto)
+- [crates/ytmusic-service-proto/proto/ytmusic/v2/cipher.proto](crates/ytmusic-service-proto/proto/ytmusic/v2/cipher.proto)
+- [crates/ytmusic-service-proto/proto/ytmusic/v2/status.proto](crates/ytmusic-service-proto/proto/ytmusic/v2/status.proto)
 - [ghfhffh12345/ytmusicapi](https://github.com/ghfhffh12345/ytmusicapi)

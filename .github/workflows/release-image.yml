@@ -95,8 +95,57 @@ jobs:
             echo "EOF"
           } >> "${GITHUB_OUTPUT}"
 
-  build-amd64:
+  live-smoke:
     needs: prepare
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo artifacts
+        uses: Swatinem/rust-cache@v2
+
+      - name: Materialize live browser auth file
+        shell: bash
+        env:
+          LIVE_BROWSER_JSON_SECRET: ${{ secrets.YTMUSIC_SERVICE_LIVE_BROWSER_JSON }}
+          LIVE_QUERY: ${{ secrets.YTMUSIC_SERVICE_LIVE_QUERY }}
+          LIVE_VIDEO_ID: ${{ secrets.YTMUSIC_SERVICE_LIVE_VIDEO_ID }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${LIVE_BROWSER_JSON_SECRET}" ]]; then
+            echo "Missing required secret YTMUSIC_SERVICE_LIVE_BROWSER_JSON." >&2
+            exit 1
+          fi
+
+          if [[ -z "${LIVE_VIDEO_ID}" ]]; then
+            echo "Missing required secret YTMUSIC_SERVICE_LIVE_VIDEO_ID." >&2
+            exit 1
+          fi
+
+          browser_json_path="${RUNNER_TEMP}/ytmusic-live-browser.json"
+          printf '%s' "${LIVE_BROWSER_JSON_SECRET}" > "${browser_json_path}"
+
+          {
+            echo "YTMUSIC_SERVICE_LIVE_BROWSER_JSON=${browser_json_path}"
+            echo "YTMUSIC_SERVICE_LIVE_VIDEO_ID=${LIVE_VIDEO_ID}"
+          } >> "${GITHUB_ENV}"
+
+          if [[ -n "${LIVE_QUERY}" ]]; then
+            echo "YTMUSIC_SERVICE_LIVE_QUERY=${LIVE_QUERY}" >> "${GITHUB_ENV}"
+          fi
+
+      - name: Run live smoke test
+        run: cargo test -p ytmusic-service --test live_smoke -- --ignored --nocapture
+
+  build-amd64:
+    needs:
+      - prepare
+      - live-smoke
     runs-on: ubuntu-24.04
     outputs:
       digest: ${{ steps.build.outputs.digest }}
@@ -127,7 +176,9 @@ jobs:
           annotations: ${{ needs.prepare.outputs.image_annotations }}
 
   build-arm64:
-    needs: prepare
+    needs:
+      - prepare
+      - live-smoke
     runs-on: ubuntu-24.04-arm
     outputs:
       digest: ${{ steps.build.outputs.digest }}

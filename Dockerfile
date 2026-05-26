@@ -54,6 +54,7 @@ FROM --platform=$TARGETPLATFORM gcr.io/distroless/cc-debian12
 LABEL org.opencontainers.image.source="https://github.com/ghfhffh12345/ytmusic-service"
 WORKDIR /app
 COPY --from=builder /tmp/ytmusic-service /app/ytmusic-service
+ENV YTMUSIC_SERVICE_ADDR=0.0.0.0:50051
 USER nonroot:nonroot
-EXPOSE 50051 50052
+EXPOSE 50051
 ENTRYPOINT ["/app/ytmusic-service"]

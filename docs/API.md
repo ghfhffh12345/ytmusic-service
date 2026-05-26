@@ -2,16 +2,15 @@
 
 For setup, authentication bootstrap, runtime examples, and troubleshooting, start with [README.md](../README.md).
 
-`ytmusic-service` is a gRPC service layer that provides various YouTube Music features over the `ytmusic.v1` and `ytmusic.v1.admin` APIs.
-
-The API uses two gRPC package namespaces: `ytmusic.v1` for the public service and `ytmusic.v1.admin` for the admin service.
+`ytmusic-service` exposes a single gRPC listener with the `ytmusic.v2` service surface plus health and reflection.
 
 ## Service names
 
-- `ytmusic.v1.YtMusicPublic`
-- `ytmusic.v1.admin.YtMusicAdmin`
-
-The admin listener is also the endpoint used for reflection-backed `grpcurl describe` and `grpcurl list` queries.
+- `ytmusic.v2.YtMusic`
+- `ytmusic.v2.YtCipher`
+- `ytmusic.v2.ServiceStatus`
+- `grpc.health.v1.Health`
+- `grpc.reflection.v1.ServerReflection`
 
 ## Public API summary
 
@@ -45,13 +44,20 @@ Continuation RPCs consume tokens returned by the corresponding listing call.
 
 - `GetAccountInfo` returns account-level profile information.
 
-## Admin API summary
+## Cipher API summary
 
-- `ReloadBrowserAuth` reloads `browser.json` from the configured path and swaps the in-memory auth state if validation succeeds.
+- `GetSignatureTimestamp` returns the current cipher signature timestamp used for song playback metadata.
+- `Refresh` rebuilds the live cipher state.
+- `Decipher` turns a `signature_cipher` value into a playable URL.
+
+## Service status API summary
+
+- `GetStatus` reports listener identity, startup time, and subsystem readiness.
 
 ## Proto sources
 
 Rust callers can depend on `ytmusic-service-proto` for the generated gRPC types and client/server modules.
 
-- [`public.proto`](../crates/ytmusic-service-proto/proto/ytmusic/v1/public.proto)
-- [`admin.proto`](../crates/ytmusic-service-proto/proto/ytmusic/v1/admin.proto)
+- [`music.proto`](../crates/ytmusic-service-proto/proto/ytmusic/v2/music.proto)
+- [`cipher.proto`](../crates/ytmusic-service-proto/proto/ytmusic/v2/cipher.proto)
+- [`status.proto`](../crates/ytmusic-service-proto/proto/ytmusic/v2/status.proto)
