@@ -6,7 +6,10 @@ pub mod state;
 use std::{net::SocketAddr, sync::Arc};
 
 use tokio::{net::TcpListener, sync::oneshot, task::JoinHandle};
-use ytmusic_service_proto::ytmusic::v2::service_status_server::ServiceStatusServer;
+use ytmusic_service_proto::ytmusic::v2::{
+    FILE_DESCRIPTOR_SET, service_status_server::ServiceStatusServer,
+    yt_cipher_server::YtCipherServer, yt_music_server::YtMusicServer,
+};
 
 pub async fn run(config: config::ServiceConfig) -> Result<(), error::ServiceError> {
     let listener = bind_service_listener(config.listen_addr()).await?;
@@ -51,19 +54,43 @@ pub async fn run_for_tests(
 async fn serve(
     listener: TcpListener,
     state: Arc<state::AppState>,
-    rpc_timeout: std::time::Duration,
+    rpc_timeout: Option<std::time::Duration>,
     ready_tx: Option<oneshot::Sender<()>>,
 ) -> Result<(), error::ServiceError> {
+    let music_service = servers::music::MusicService {
+        state: state.clone(),
+    };
+    let cipher_service = servers::cipher::CipherService {
+        state: state.clone(),
+    };
+
     let (mut health_reporter, health_service) = tonic_health::server::health_reporter();
     health_reporter
         .set_serving::<ServiceStatusServer<servers::status::StatusService>>()
         .await;
+    health_reporter
+        .set_serving::<YtMusicServer<servers::music::MusicService>>()
+        .await;
+    health_reporter
+        .set_serving::<YtCipherServer<servers::cipher::CipherService>>()
+        .await;
+
+    let reflection = tonic_reflection::server::Builder::configure()
+        .register_encoded_file_descriptor_set(FILE_DESCRIPTOR_SET)
+        .build_v1()
+        .map_err(error::ServiceError::Reflection)?;
 
     let incoming = tonic::transport::server::TcpIncoming::from_listener(listener, true, None)
         .map_err(error::ServiceError::Incoming)?;
-    let server = tonic::transport::Server::builder()
-        .timeout(rpc_timeout)
+    let mut server = tonic::transport::Server::builder();
+    if let Some(rpc_timeout) = rpc_timeout {
+        server = server.timeout(rpc_timeout);
+    }
+    let server = server
         .add_service(health_service)
+        .add_service(reflection)
+        .add_service(YtMusicServer::new(music_service))
+        .add_service(YtCipherServer::new(cipher_service))
         .add_service(ServiceStatusServer::new(servers::status::StatusService {
             state,
         }))

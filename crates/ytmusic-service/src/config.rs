@@ -2,23 +2,20 @@ use std::{net::SocketAddr, path::PathBuf, time::Duration};
 
 use crate::error::ServiceError;
 
-const DEFAULT_RPC_TIMEOUT: Duration = Duration::from_secs(30);
-
 #[derive(Clone, Debug)]
 pub struct ServiceConfig {
     listen_addr: SocketAddr,
     browser_auth_path: PathBuf,
-    rpc_timeout: Duration,
+    rpc_timeout: Option<Duration>,
 }
 
 impl ServiceConfig {
     pub fn from_env() -> Result<Self, ServiceError> {
-        let listen_addr = std::env::var("YTMUSIC_SERVICE_LISTEN_ADDR").map_err(|source| {
-            ServiceError::EnvVar {
-                name: "YTMUSIC_SERVICE_LISTEN_ADDR",
+        let listen_addr =
+            std::env::var("YTMUSIC_SERVICE_ADDR").map_err(|source| ServiceError::EnvVar {
+                name: "YTMUSIC_SERVICE_ADDR",
                 source,
-            }
-        })?;
+            })?;
         let browser_auth_path =
             std::env::var("YTMUSIC_SERVICE_BROWSER_JSON").map_err(|source| {
                 ServiceError::EnvVar {
@@ -26,8 +23,14 @@ impl ServiceConfig {
                     source,
                 }
             })?;
+        let rpc_timeout = std::env::var("YTMUSIC_SERVICE_RPC_TIMEOUT_MS")
+            .ok()
+            .map(|value| parse_rpc_timeout_ms(&value))
+            .transpose()?;
 
-        Self::from_parts(&listen_addr, PathBuf::from(browser_auth_path))
+        let mut config = Self::from_parts(&listen_addr, PathBuf::from(browser_auth_path))?;
+        config.rpc_timeout = rpc_timeout;
+        Ok(config)
     }
 
     pub fn from_parts(
@@ -45,7 +48,7 @@ impl ServiceConfig {
         Ok(Self {
             listen_addr: listen_addr.parse()?,
             browser_auth_path,
-            rpc_timeout: DEFAULT_RPC_TIMEOUT,
+            rpc_timeout: None,
         })
     }
 
@@ -57,7 +60,7 @@ impl ServiceConfig {
         &self.browser_auth_path
     }
 
-    pub fn rpc_timeout(&self) -> Duration {
+    pub fn rpc_timeout(&self) -> Option<Duration> {
         self.rpc_timeout
     }
 
@@ -68,4 +71,14 @@ impl ServiceConfig {
             rpc_timeout: self.rpc_timeout,
         }
     }
+}
+
+fn parse_rpc_timeout_ms(value: &str) -> Result<Duration, ServiceError> {
+    let millis = value
+        .parse::<u64>()
+        .map_err(|source| ServiceError::InvalidRpcTimeoutMs {
+            value: value.to_owned(),
+            source,
+        })?;
+    Ok(Duration::from_millis(millis))
 }

@@ -14,6 +14,12 @@ pub enum ServiceError {
     BrowserAuthPathNotFile(std::path::PathBuf),
     #[error("invalid socket address: {0}")]
     InvalidSocketAddress(#[from] std::net::AddrParseError),
+    #[error("invalid YTMUSIC_SERVICE_RPC_TIMEOUT_MS value {value}: {source}")]
+    InvalidRpcTimeoutMs {
+        value: String,
+        #[source]
+        source: std::num::ParseIntError,
+    },
     #[error("failed to bind listener: {0}")]
     ListenerBind(#[source] std::io::Error),
     #[error("failed to read listener local address: {0}")]
@@ -62,6 +68,9 @@ pub fn map_service_error(error: &ServiceError) -> tonic::Status {
             path.display()
         )),
         ServiceError::InvalidSocketAddress(source) => {
+            tonic::Status::failed_precondition(source.to_string())
+        }
+        ServiceError::InvalidRpcTimeoutMs { source, .. } => {
             tonic::Status::failed_precondition(source.to_string())
         }
         ServiceError::ListenerBind(source) => tonic::Status::unavailable(source.to_string()),

@@ -1,5 +1,10 @@
 use tempfile::NamedTempFile;
-use tonic::transport::Channel;
+use tonic::codegen::tokio_stream::StreamExt as _;
+use tonic::{Code, Request, transport::Channel};
+use tonic_reflection::pb::v1::{
+    ServerReflectionRequest, server_reflection_client::ServerReflectionClient,
+    server_reflection_request::MessageRequest, server_reflection_response::MessageResponse,
+};
 
 fn write_minimal_valid_browser_auth(path: &std::path::Path) {
     std::fs::write(
@@ -44,7 +49,7 @@ async fn startup_serves_health_and_status_on_one_listener() -> Result<(), Box<dy
 
     let mut status =
         ytmusic_service_proto::ytmusic::v2::service_status_client::ServiceStatusClient::new(
-            channel,
+            channel.clone(),
         );
     let status_response = status
         .get_status(ytmusic_service_proto::ytmusic::v2::GetStatusRequest {})
@@ -54,6 +59,77 @@ async fn startup_serves_health_and_status_on_one_listener() -> Result<(), Box<dy
     assert!(status_response.ytmusic_ready);
     assert!(status_response.cipher_ready);
     assert_eq!(status_response.lifecycle, "serving");
+
+    let mut reflection = ServerReflectionClient::new(channel.clone());
+    let reflection_request = tonic::codegen::tokio_stream::iter(vec![ServerReflectionRequest {
+        host: String::new(),
+        message_request: Some(MessageRequest::ListServices(String::new())),
+    }]);
+    let mut reflection_responses = reflection
+        .server_reflection_info(Request::new(reflection_request))
+        .await?
+        .into_inner();
+    let reflection_response = reflection_responses
+        .next()
+        .await
+        .expect("reflection response")
+        .expect("successful reflection response");
+    let services = match reflection_response
+        .message_response
+        .expect("reflection message response")
+    {
+        MessageResponse::ListServicesResponse(services) => services,
+        other => panic!("unexpected reflection response: {other:?}"),
+    };
+    let service_names: Vec<_> = services
+        .service
+        .into_iter()
+        .map(|service| service.name)
+        .collect();
+    assert!(
+        service_names
+            .iter()
+            .any(|name| name == "grpc.reflection.v1.ServerReflection")
+    );
+    assert!(
+        service_names
+            .iter()
+            .any(|name| name == "ytmusic.v2.ServiceStatus")
+    );
+    assert!(
+        service_names
+            .iter()
+            .any(|name| name == "ytmusic.v2.YtMusic")
+    );
+    assert!(
+        service_names
+            .iter()
+            .any(|name| name == "ytmusic.v2.YtCipher")
+    );
+
+    let mut music =
+        ytmusic_service_proto::ytmusic::v2::yt_music_client::YtMusicClient::new(channel.clone());
+    let music_status = music
+        .get_library_playlists(ytmusic_service_proto::ytmusic::v2::Empty {})
+        .await
+        .unwrap_err();
+    assert_eq!(music_status.code(), Code::Unimplemented);
+    assert_eq!(
+        music_status.message(),
+        "ytmusic.v2.YtMusic RPCs are not implemented yet"
+    );
+
+    let mut cipher =
+        ytmusic_service_proto::ytmusic::v2::yt_cipher_client::YtCipherClient::new(channel);
+    let cipher_status = cipher
+        .get_signature_timestamp(ytmusic_service_proto::ytmusic::v2::Empty {})
+        .await
+        .unwrap_err();
+    assert_eq!(cipher_status.code(), Code::Unimplemented);
+    assert_eq!(
+        cipher_status.message(),
+        "ytmusic.v2.YtCipher RPCs are not implemented yet"
+    );
 
     Ok(())
 }
