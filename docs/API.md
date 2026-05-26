@@ -24,7 +24,6 @@ For setup, authentication bootstrap, runtime examples, and troubleshooting, star
 - `GetWatchPlaylist` resolves the watch playlist for a `video_id` or `playlist_id`, with optional radio/shuffle playback context.
 - `GetWatchPlaylistContinuation` continues a watch playlist response with a continuation token.
 - `GetSong` returns song metadata for a single video ID.
-- `Decipher` turns a `signature_cipher` value into a playable URL.
 
 ### Library listing families
 

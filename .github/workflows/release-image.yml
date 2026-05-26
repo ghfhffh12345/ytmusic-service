@@ -108,6 +108,9 @@ jobs:
       - name: Cache Cargo artifacts
         uses: Swatinem/rust-cache@v2
 
+      - name: Build release binary
+        run: cargo build --locked --release -p ytmusic-service
+
       - name: Materialize live browser auth file
         shell: bash
         env:
@@ -133,6 +136,7 @@ jobs:
           {
             echo "YTMUSIC_SERVICE_LIVE_BROWSER_JSON=${browser_json_path}"
             echo "YTMUSIC_SERVICE_LIVE_VIDEO_ID=${LIVE_VIDEO_ID}"
+            echo "YTMUSIC_SERVICE_LIVE_BINARY=target/release/ytmusic-service"
           } >> "${GITHUB_ENV}"
 
           if [[ -n "${LIVE_QUERY}" ]]; then

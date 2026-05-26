@@ -54,6 +54,14 @@ docker run --rm \
 
 GitHub Actions publishes container releases automatically on GitHub-hosted runners when you push an exact `vX.Y.Z` Git tag. The release workflow now requires the ignored live smoke test to pass before image publication starts.
 
+The live release gate requires these GitHub Actions secrets:
+
+- `YTMUSIC_SERVICE_LIVE_BROWSER_JSON`: the raw `browser.json` contents
+- `YTMUSIC_SERVICE_LIVE_VIDEO_ID`: a known-good song video ID for `GetSong`
+- `YTMUSIC_SERVICE_LIVE_QUERY`: optional search query override; defaults to `Miles Davis`
+
+During the workflow, the browser JSON secret is written to a temporary file and passed to the smoke test through `YTMUSIC_SERVICE_LIVE_BROWSER_JSON`. The smoke test then launches the release binary with the same `YTMUSIC_SERVICE_ADDR` and `YTMUSIC_SERVICE_BROWSER_JSON` env surface used by the container runtime.
+
 ```bash
 git tag v0.1.1
 git push origin v0.1.1
