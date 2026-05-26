@@ -27,6 +27,155 @@ pub fn song_response_to_proto(song: ytmusicapi::GetSongResponse) -> pb::GetSongR
     }
 }
 
+pub fn library_playlists_page_to_proto(
+    page: ytmusicapi::Page<
+        ytmusicapi::LibraryPlaylist,
+        ytmusicapi::LibraryPlaylistsContinuationToken,
+    >,
+) -> pb::LibraryPlaylistsResponse {
+    pb::LibraryPlaylistsResponse {
+        items: page
+            .items
+            .into_iter()
+            .map(library_playlist_item_to_proto)
+            .collect(),
+        continuation_token: page.continuation.map(|token| token.as_str().to_owned()),
+    }
+}
+
+pub fn account_info_to_proto(account_info: ytmusicapi::AccountInfo) -> pb::AccountInfoResponse {
+    pb::AccountInfoResponse {
+        account_name: account_info.account_name,
+        channel_handle: account_info.channel_handle,
+        account_photo_url: account_info.account_photo_url,
+    }
+}
+
+pub fn library_artists_page_to_proto(
+    page: ytmusicapi::Page<ytmusicapi::LibraryArtist, ytmusicapi::LibraryArtistsContinuationToken>,
+) -> pb::LibraryArtistsResponse {
+    pb::LibraryArtistsResponse {
+        items: page
+            .items
+            .into_iter()
+            .map(library_artist_item_to_proto)
+            .collect(),
+        continuation_token: page.continuation.map(|token| token.as_str().to_owned()),
+    }
+}
+
+pub fn library_albums_page_to_proto(
+    page: ytmusicapi::Page<ytmusicapi::LibraryAlbum, ytmusicapi::LibraryAlbumsContinuationToken>,
+) -> pb::LibraryAlbumsResponse {
+    pb::LibraryAlbumsResponse {
+        items: page
+            .items
+            .into_iter()
+            .map(library_album_item_to_proto)
+            .collect(),
+        continuation_token: page.continuation.map(|token| token.as_str().to_owned()),
+    }
+}
+
+pub fn library_subscriptions_page_to_proto(
+    page: ytmusicapi::Page<
+        ytmusicapi::LibrarySubscription,
+        ytmusicapi::LibrarySubscriptionsContinuationToken,
+    >,
+) -> pb::LibrarySubscriptionsResponse {
+    pb::LibrarySubscriptionsResponse {
+        items: page
+            .items
+            .into_iter()
+            .map(library_subscription_item_to_proto)
+            .collect(),
+        continuation_token: page.continuation.map(|token| token.as_str().to_owned()),
+    }
+}
+
+pub fn library_channels_page_to_proto(
+    page: ytmusicapi::Page<
+        ytmusicapi::LibraryChannel,
+        ytmusicapi::LibraryChannelsContinuationToken,
+    >,
+) -> pb::LibraryChannelsResponse {
+    pb::LibraryChannelsResponse {
+        items: page
+            .items
+            .into_iter()
+            .map(library_channel_item_to_proto)
+            .collect(),
+        continuation_token: page.continuation.map(|token| token.as_str().to_owned()),
+    }
+}
+
+pub fn library_podcasts_page_to_proto(
+    page: ytmusicapi::Page<
+        ytmusicapi::LibraryPodcast,
+        ytmusicapi::LibraryPodcastsContinuationToken,
+    >,
+) -> pb::LibraryPodcastsResponse {
+    pb::LibraryPodcastsResponse {
+        items: page
+            .items
+            .into_iter()
+            .map(library_podcast_item_to_proto)
+            .collect(),
+        continuation_token: page.continuation.map(|token| token.as_str().to_owned()),
+    }
+}
+
+pub fn library_songs_page_to_proto(
+    page: ytmusicapi::Page<ytmusicapi::LibrarySong, ytmusicapi::LibrarySongsContinuationToken>,
+) -> pb::LibrarySongsResponse {
+    pb::LibrarySongsResponse {
+        items: page
+            .items
+            .into_iter()
+            .map(library_song_item_to_proto)
+            .collect(),
+        continuation_token: page.continuation.map(|token| token.as_str().to_owned()),
+    }
+}
+
+pub fn liked_songs_page_to_proto(page: ytmusicapi::LikedSongsPage) -> pb::LikedSongsResponse {
+    pb::LikedSongsResponse {
+        playlist_id: page.playlist_id,
+        title: page.title,
+        items: page
+            .items
+            .into_iter()
+            .map(liked_song_item_to_proto)
+            .collect(),
+        thumbnails: page
+            .thumbnails
+            .into_iter()
+            .map(thumbnail_to_proto)
+            .collect(),
+        continuation_token: page.continuation.map(|token| token.as_str().to_owned()),
+    }
+}
+
+pub fn saved_episodes_page_to_proto(
+    page: ytmusicapi::SavedEpisodesPage,
+) -> pb::SavedEpisodesResponse {
+    pb::SavedEpisodesResponse {
+        playlist_id: page.playlist_id,
+        title: page.title,
+        items: page
+            .items
+            .into_iter()
+            .map(saved_episode_item_to_proto)
+            .collect(),
+        thumbnails: page
+            .thumbnails
+            .into_iter()
+            .map(thumbnail_to_proto)
+            .collect(),
+        continuation_token: page.continuation.map(|token| token.as_str().to_owned()),
+    }
+}
+
 fn search_result_to_proto(result: ytmusicapi::SearchResult) -> pb::SearchResult {
     let kind = match result {
         ytmusicapi::SearchResult::Song(song) => {
@@ -204,6 +353,151 @@ fn watch_track_to_proto(track: ytmusicapi::WatchTrack) -> pb::WatchTrackItem {
         counterpart: track
             .counterpart
             .map(|counterpart| Box::new(watch_track_to_proto(*counterpart))),
+    }
+}
+
+fn library_playlist_item_to_proto(item: ytmusicapi::LibraryPlaylist) -> pb::LibraryPlaylistItem {
+    pb::LibraryPlaylistItem {
+        playlist_id: item.playlist_id,
+        title: item.title,
+        authors: item.authors.into_iter().map(artist_ref_to_proto).collect(),
+        item_count: item.item_count,
+        thumbnails: item
+            .thumbnails
+            .into_iter()
+            .map(thumbnail_to_proto)
+            .collect(),
+    }
+}
+
+fn library_artist_item_to_proto(item: ytmusicapi::LibraryArtist) -> pb::LibraryArtistItem {
+    pb::LibraryArtistItem {
+        browse_id: item.browse_id,
+        artist: item.artist,
+        subscribers: item.subscribers,
+        thumbnails: item
+            .thumbnails
+            .into_iter()
+            .map(thumbnail_to_proto)
+            .collect(),
+    }
+}
+
+fn library_album_item_to_proto(item: ytmusicapi::LibraryAlbum) -> pb::LibraryAlbumItem {
+    pb::LibraryAlbumItem {
+        browse_id: item.browse_id,
+        playlist_id: item.playlist_id,
+        title: item.title,
+        type_label: item.type_label,
+        artists: item.artists.into_iter().map(artist_ref_to_proto).collect(),
+        year: item.year,
+        thumbnails: item
+            .thumbnails
+            .into_iter()
+            .map(thumbnail_to_proto)
+            .collect(),
+    }
+}
+
+fn library_subscription_item_to_proto(
+    item: ytmusicapi::LibrarySubscription,
+) -> pb::LibrarySubscriptionItem {
+    pb::LibrarySubscriptionItem {
+        browse_id: item.browse_id,
+        name: item.name,
+        subscribers: item.subscribers,
+        thumbnails: item
+            .thumbnails
+            .into_iter()
+            .map(thumbnail_to_proto)
+            .collect(),
+    }
+}
+
+fn library_channel_item_to_proto(item: ytmusicapi::LibraryChannel) -> pb::LibraryChannelItem {
+    pb::LibraryChannelItem {
+        browse_id: item.browse_id,
+        name: item.name,
+        subscribers: item.subscribers,
+        thumbnails: item
+            .thumbnails
+            .into_iter()
+            .map(thumbnail_to_proto)
+            .collect(),
+    }
+}
+
+fn library_podcast_item_to_proto(item: ytmusicapi::LibraryPodcast) -> pb::LibraryPodcastItem {
+    pb::LibraryPodcastItem {
+        title: item.title,
+        browse_id: item.browse_id,
+        podcast_id: item.podcast_id,
+        channel: Some(library_podcast_channel_to_proto(item.channel)),
+        thumbnails: item
+            .thumbnails
+            .into_iter()
+            .map(thumbnail_to_proto)
+            .collect(),
+    }
+}
+
+fn library_podcast_channel_to_proto(
+    channel: ytmusicapi::LibraryPodcastChannel,
+) -> pb::LibraryPodcastChannel {
+    pb::LibraryPodcastChannel {
+        id: channel.id,
+        name: channel.name,
+    }
+}
+
+fn library_song_item_to_proto(item: ytmusicapi::LibrarySong) -> pb::LibrarySongItem {
+    pb::LibrarySongItem {
+        video_id: item.video_id,
+        title: item.title,
+        artists: item.artists.into_iter().map(artist_ref_to_proto).collect(),
+        album: item.album.map(album_ref_to_proto),
+        duration: item.duration,
+        thumbnails: item
+            .thumbnails
+            .into_iter()
+            .map(thumbnail_to_proto)
+            .collect(),
+        like_status: item
+            .like_status
+            .map(|status| like_status_to_proto(status) as i32),
+    }
+}
+
+fn liked_song_item_to_proto(item: ytmusicapi::LikedSongItem) -> pb::LikedSongItem {
+    pb::LikedSongItem {
+        video_id: item.video_id,
+        title: item.title,
+        artists: item.artists.into_iter().map(artist_ref_to_proto).collect(),
+        album: item.album.map(album_ref_to_proto),
+        duration: item.duration,
+        thumbnails: item
+            .thumbnails
+            .into_iter()
+            .map(thumbnail_to_proto)
+            .collect(),
+        like_status: item
+            .like_status
+            .map(|status| like_status_to_proto(status) as i32),
+    }
+}
+
+fn saved_episode_item_to_proto(item: ytmusicapi::SavedEpisodeItem) -> pb::SavedEpisodeItem {
+    pb::SavedEpisodeItem {
+        video_id: item.video_id,
+        title: item.title,
+        channel: item.channel,
+        podcast: item.podcast,
+        duration: item.duration,
+        thumbnails: item
+            .thumbnails
+            .into_iter()
+            .map(thumbnail_to_proto)
+            .collect(),
     }
 }
 

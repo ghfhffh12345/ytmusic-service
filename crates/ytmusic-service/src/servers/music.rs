@@ -3,8 +3,6 @@ use std::sync::Arc;
 use tonic::{Request, Response, Status};
 use ytmusic_service_proto::ytmusic::v2::{self as pb, yt_music_server::YtMusic};
 
-const UNIMPLEMENTED_MESSAGE: &str = "this ytmusic.v2.YtMusic RPC is not implemented yet";
-
 pub struct MusicService {
     pub state: Arc<crate::state::AppState>,
 }
@@ -115,133 +113,363 @@ impl YtMusic for MusicService {
         &self,
         _request: Request<pb::Empty>,
     ) -> Result<Response<pb::LibraryPlaylistsResponse>, Status> {
-        Err(Status::unimplemented(UNIMPLEMENTED_MESSAGE))
+        let page = self
+            .state
+            .music
+            .get_library_playlists()
+            .await
+            .map_err(|source| {
+                crate::error::map_service_error(&crate::error::ServiceError::YtMusic(source))
+            })?;
+        Ok(Response::new(
+            crate::servers::music_mapping::library_playlists_page_to_proto(page),
+        ))
     }
 
     async fn get_library_playlists_continuation(
         &self,
-        _request: Request<pb::ContinuationRequest>,
+        request: Request<pb::ContinuationRequest>,
     ) -> Result<Response<pb::LibraryPlaylistsResponse>, Status> {
-        Err(Status::unimplemented(UNIMPLEMENTED_MESSAGE))
+        let token = continuation_token(
+            request.into_inner().token,
+            "library playlists continuation token must not be empty",
+            ytmusicapi::LibraryPlaylistsContinuationToken::new,
+        )?;
+        let page = self
+            .state
+            .music
+            .get_library_playlists_continuation(token)
+            .await
+            .map_err(|source| {
+                crate::error::map_service_error(&crate::error::ServiceError::YtMusic(source))
+            })?;
+        Ok(Response::new(
+            crate::servers::music_mapping::library_playlists_page_to_proto(page),
+        ))
     }
 
     async fn get_account_info(
         &self,
         _request: Request<pb::Empty>,
     ) -> Result<Response<pb::AccountInfoResponse>, Status> {
-        Err(Status::unimplemented(UNIMPLEMENTED_MESSAGE))
+        let account_info = self
+            .state
+            .music
+            .get_account_info()
+            .await
+            .map_err(|source| {
+                crate::error::map_service_error(&crate::error::ServiceError::YtMusic(source))
+            })?;
+        Ok(Response::new(
+            crate::servers::music_mapping::account_info_to_proto(account_info),
+        ))
     }
 
     async fn get_library_artists(
         &self,
         _request: Request<pb::Empty>,
     ) -> Result<Response<pb::LibraryArtistsResponse>, Status> {
-        Err(Status::unimplemented(UNIMPLEMENTED_MESSAGE))
+        let page = self
+            .state
+            .music
+            .get_library_artists()
+            .await
+            .map_err(|source| {
+                crate::error::map_service_error(&crate::error::ServiceError::YtMusic(source))
+            })?;
+        Ok(Response::new(
+            crate::servers::music_mapping::library_artists_page_to_proto(page),
+        ))
     }
 
     async fn get_library_artists_continuation(
         &self,
-        _request: Request<pb::ContinuationRequest>,
+        request: Request<pb::ContinuationRequest>,
     ) -> Result<Response<pb::LibraryArtistsResponse>, Status> {
-        Err(Status::unimplemented(UNIMPLEMENTED_MESSAGE))
+        let token = continuation_token(
+            request.into_inner().token,
+            "library artists continuation token must not be empty",
+            ytmusicapi::LibraryArtistsContinuationToken::new,
+        )?;
+        let page = self
+            .state
+            .music
+            .get_library_artists_continuation(token)
+            .await
+            .map_err(|source| {
+                crate::error::map_service_error(&crate::error::ServiceError::YtMusic(source))
+            })?;
+        Ok(Response::new(
+            crate::servers::music_mapping::library_artists_page_to_proto(page),
+        ))
     }
 
     async fn get_library_albums(
         &self,
         _request: Request<pb::Empty>,
     ) -> Result<Response<pb::LibraryAlbumsResponse>, Status> {
-        Err(Status::unimplemented(UNIMPLEMENTED_MESSAGE))
+        let page = self
+            .state
+            .music
+            .get_library_albums()
+            .await
+            .map_err(|source| {
+                crate::error::map_service_error(&crate::error::ServiceError::YtMusic(source))
+            })?;
+        Ok(Response::new(
+            crate::servers::music_mapping::library_albums_page_to_proto(page),
+        ))
     }
 
     async fn get_library_albums_continuation(
         &self,
-        _request: Request<pb::ContinuationRequest>,
+        request: Request<pb::ContinuationRequest>,
     ) -> Result<Response<pb::LibraryAlbumsResponse>, Status> {
-        Err(Status::unimplemented(UNIMPLEMENTED_MESSAGE))
+        let token = continuation_token(
+            request.into_inner().token,
+            "library albums continuation token must not be empty",
+            ytmusicapi::LibraryAlbumsContinuationToken::new,
+        )?;
+        let page = self
+            .state
+            .music
+            .get_library_albums_continuation(token)
+            .await
+            .map_err(|source| {
+                crate::error::map_service_error(&crate::error::ServiceError::YtMusic(source))
+            })?;
+        Ok(Response::new(
+            crate::servers::music_mapping::library_albums_page_to_proto(page),
+        ))
     }
 
     async fn get_library_subscriptions(
         &self,
         _request: Request<pb::Empty>,
     ) -> Result<Response<pb::LibrarySubscriptionsResponse>, Status> {
-        Err(Status::unimplemented(UNIMPLEMENTED_MESSAGE))
+        let page = self
+            .state
+            .music
+            .get_library_subscriptions()
+            .await
+            .map_err(|source| {
+                crate::error::map_service_error(&crate::error::ServiceError::YtMusic(source))
+            })?;
+        Ok(Response::new(
+            crate::servers::music_mapping::library_subscriptions_page_to_proto(page),
+        ))
     }
 
     async fn get_library_subscriptions_continuation(
         &self,
-        _request: Request<pb::ContinuationRequest>,
+        request: Request<pb::ContinuationRequest>,
     ) -> Result<Response<pb::LibrarySubscriptionsResponse>, Status> {
-        Err(Status::unimplemented(UNIMPLEMENTED_MESSAGE))
+        let token = continuation_token(
+            request.into_inner().token,
+            "library subscriptions continuation token must not be empty",
+            ytmusicapi::LibrarySubscriptionsContinuationToken::new,
+        )?;
+        let page = self
+            .state
+            .music
+            .get_library_subscriptions_continuation(token)
+            .await
+            .map_err(|source| {
+                crate::error::map_service_error(&crate::error::ServiceError::YtMusic(source))
+            })?;
+        Ok(Response::new(
+            crate::servers::music_mapping::library_subscriptions_page_to_proto(page),
+        ))
     }
 
     async fn get_library_channels(
         &self,
         _request: Request<pb::Empty>,
     ) -> Result<Response<pb::LibraryChannelsResponse>, Status> {
-        Err(Status::unimplemented(UNIMPLEMENTED_MESSAGE))
+        let page = self
+            .state
+            .music
+            .get_library_channels()
+            .await
+            .map_err(|source| {
+                crate::error::map_service_error(&crate::error::ServiceError::YtMusic(source))
+            })?;
+        Ok(Response::new(
+            crate::servers::music_mapping::library_channels_page_to_proto(page),
+        ))
     }
 
     async fn get_library_channels_continuation(
         &self,
-        _request: Request<pb::ContinuationRequest>,
+        request: Request<pb::ContinuationRequest>,
     ) -> Result<Response<pb::LibraryChannelsResponse>, Status> {
-        Err(Status::unimplemented(UNIMPLEMENTED_MESSAGE))
+        let token = continuation_token(
+            request.into_inner().token,
+            "library channels continuation token must not be empty",
+            ytmusicapi::LibraryChannelsContinuationToken::new,
+        )?;
+        let page = self
+            .state
+            .music
+            .get_library_channels_continuation(token)
+            .await
+            .map_err(|source| {
+                crate::error::map_service_error(&crate::error::ServiceError::YtMusic(source))
+            })?;
+        Ok(Response::new(
+            crate::servers::music_mapping::library_channels_page_to_proto(page),
+        ))
     }
 
     async fn get_library_podcasts(
         &self,
         _request: Request<pb::Empty>,
     ) -> Result<Response<pb::LibraryPodcastsResponse>, Status> {
-        Err(Status::unimplemented(UNIMPLEMENTED_MESSAGE))
+        let page = self
+            .state
+            .music
+            .get_library_podcasts()
+            .await
+            .map_err(|source| {
+                crate::error::map_service_error(&crate::error::ServiceError::YtMusic(source))
+            })?;
+        Ok(Response::new(
+            crate::servers::music_mapping::library_podcasts_page_to_proto(page),
+        ))
     }
 
     async fn get_library_podcasts_continuation(
         &self,
-        _request: Request<pb::ContinuationRequest>,
+        request: Request<pb::ContinuationRequest>,
     ) -> Result<Response<pb::LibraryPodcastsResponse>, Status> {
-        Err(Status::unimplemented(UNIMPLEMENTED_MESSAGE))
+        let token = continuation_token(
+            request.into_inner().token,
+            "library podcasts continuation token must not be empty",
+            ytmusicapi::LibraryPodcastsContinuationToken::new,
+        )?;
+        let page = self
+            .state
+            .music
+            .get_library_podcasts_continuation(token)
+            .await
+            .map_err(|source| {
+                crate::error::map_service_error(&crate::error::ServiceError::YtMusic(source))
+            })?;
+        Ok(Response::new(
+            crate::servers::music_mapping::library_podcasts_page_to_proto(page),
+        ))
     }
 
     async fn get_library_songs(
         &self,
         _request: Request<pb::Empty>,
     ) -> Result<Response<pb::LibrarySongsResponse>, Status> {
-        Err(Status::unimplemented(UNIMPLEMENTED_MESSAGE))
+        let page = self
+            .state
+            .music
+            .get_library_songs()
+            .await
+            .map_err(|source| {
+                crate::error::map_service_error(&crate::error::ServiceError::YtMusic(source))
+            })?;
+        Ok(Response::new(
+            crate::servers::music_mapping::library_songs_page_to_proto(page),
+        ))
     }
 
     async fn get_library_songs_continuation(
         &self,
-        _request: Request<pb::ContinuationRequest>,
+        request: Request<pb::ContinuationRequest>,
     ) -> Result<Response<pb::LibrarySongsResponse>, Status> {
-        Err(Status::unimplemented(UNIMPLEMENTED_MESSAGE))
+        let token = continuation_token(
+            request.into_inner().token,
+            "library songs continuation token must not be empty",
+            ytmusicapi::LibrarySongsContinuationToken::new,
+        )?;
+        let page = self
+            .state
+            .music
+            .get_library_songs_continuation(token)
+            .await
+            .map_err(|source| {
+                crate::error::map_service_error(&crate::error::ServiceError::YtMusic(source))
+            })?;
+        Ok(Response::new(
+            crate::servers::music_mapping::library_songs_page_to_proto(page),
+        ))
     }
 
     async fn get_liked_songs(
         &self,
         _request: Request<pb::Empty>,
     ) -> Result<Response<pb::LikedSongsResponse>, Status> {
-        Err(Status::unimplemented(UNIMPLEMENTED_MESSAGE))
+        let page = self.state.music.get_liked_songs().await.map_err(|source| {
+            crate::error::map_service_error(&crate::error::ServiceError::YtMusic(source))
+        })?;
+        Ok(Response::new(
+            crate::servers::music_mapping::liked_songs_page_to_proto(page),
+        ))
     }
 
     async fn get_liked_songs_continuation(
         &self,
-        _request: Request<pb::ContinuationRequest>,
+        request: Request<pb::ContinuationRequest>,
     ) -> Result<Response<pb::LikedSongsResponse>, Status> {
-        Err(Status::unimplemented(UNIMPLEMENTED_MESSAGE))
+        let token = continuation_token(
+            request.into_inner().token,
+            "liked songs continuation token must not be empty",
+            ytmusicapi::LikedSongsContinuationToken::new,
+        )?;
+        let page = self
+            .state
+            .music
+            .get_liked_songs_continuation(token)
+            .await
+            .map_err(|source| {
+                crate::error::map_service_error(&crate::error::ServiceError::YtMusic(source))
+            })?;
+        Ok(Response::new(
+            crate::servers::music_mapping::liked_songs_page_to_proto(page),
+        ))
     }
 
     async fn get_saved_episodes(
         &self,
         _request: Request<pb::Empty>,
     ) -> Result<Response<pb::SavedEpisodesResponse>, Status> {
-        Err(Status::unimplemented(UNIMPLEMENTED_MESSAGE))
+        let page = self
+            .state
+            .music
+            .get_saved_episodes()
+            .await
+            .map_err(|source| {
+                crate::error::map_service_error(&crate::error::ServiceError::YtMusic(source))
+            })?;
+        Ok(Response::new(
+            crate::servers::music_mapping::saved_episodes_page_to_proto(page),
+        ))
     }
 
     async fn get_saved_episodes_continuation(
         &self,
-        _request: Request<pb::ContinuationRequest>,
+        request: Request<pb::ContinuationRequest>,
     ) -> Result<Response<pb::SavedEpisodesResponse>, Status> {
-        Err(Status::unimplemented(UNIMPLEMENTED_MESSAGE))
+        let token = continuation_token(
+            request.into_inner().token,
+            "saved episodes continuation token must not be empty",
+            ytmusicapi::SavedEpisodesContinuationToken::new,
+        )?;
+        let page = self
+            .state
+            .music
+            .get_saved_episodes_continuation(token)
+            .await
+            .map_err(|source| {
+                crate::error::map_service_error(&crate::error::ServiceError::YtMusic(source))
+            })?;
+        Ok(Response::new(
+            crate::servers::music_mapping::saved_episodes_page_to_proto(page),
+        ))
     }
 }
 

@@ -1,0 +1,37 @@
+{
+  "actions": [
+    {
+      "openPopupAction": {
+        "popup": {
+          "multiPageMenuRenderer": {
+            "header": {
+              "activeAccountHeaderRenderer": {
+                "accountName": {
+                  "runs": [
+                    {
+                      "text": "Test Account"
+                    }
+                  ]
+                },
+                "channelHandle": {
+                  "runs": [
+                    {
+                      "text": "@test"
+                    }
+                  ]
+                },
+                "accountPhoto": {
+                  "thumbnails": [
+                    {
+                      "url": "https://example.com/account.jpg"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}
