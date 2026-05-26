@@ -2843,6 +2843,7 @@ dependencies = [
  "tracing-subscriber",
  "wiremock",
  "yt-cipher",
+ "ytmusic-service-client",
  "ytmusic-service-proto",
  "ytmusicapi",
 ]
